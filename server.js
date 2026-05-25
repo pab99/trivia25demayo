@@ -73,12 +73,14 @@ io.on('connection', (socket) => {
         const jugador = jugadores[cleanUsername];
         if (!jugador) return;
 
+        // Condición 1: Se quedó sin vidas
         if (jugador.vidas <= 0) {
             const puesto = obtenerPuesto(cleanUsername);
             socket.emit('game_over', { puntos: jugador.puntos, puesto: puesto });
             return;
         }
 
+        // Condición 2: Ya respondió las 10 preguntas fijadas de su ronda
         if (jugador.respondidas.length >= 10) {
             const puesto = obtenerPuesto(cleanUsername);
             socket.emit('game_completed', { puntos: jugador.puntos, puesto: puesto });
@@ -87,6 +89,7 @@ io.on('connection', (socket) => {
 
         const disponibles = preguntasTodo.filter(p => !jugador.respondidas.includes(p.id));
         if (disponibles.length === 0) {
+            // Si por alguna razón se acaban las preguntas globales antes de 10
             const puesto = obtenerPuesto(cleanUsername);
             socket.emit('game_completed', { puntos: jugador.puntos, puesto: puesto });
             return;
@@ -158,26 +161,27 @@ io.on('connection', (socket) => {
         enviarRanking();
     });
 
-    // CORREGIDO: Lógica de revancha directa y sin trabas
+    // CORREGIDO Y BLINDADO: Lógica de revancha atómica y forzada
     socket.on('reset_game', () => {
-        let cleanUsername = socket.usernameClean;
-
-        // Por si el cliente perdió la sesión interna por un pestañeo de red, no lo dejamos colgado
-        if (!cleanUsername && socket.id) {
-            // Buscamos si hay algún jugador asociado a este socket id para rescatarlo
-            cleanUsername = Object.keys(jugadores).find(k => jugadores[k].socketId === socket.id);
-        }
+        const cleanUsername = socket.usernameClean;
 
         if (cleanUsername && jugadores[cleanUsername]) {
+            // Reinicio estricto y total en la base de datos de Render
+            console.log(`🧹 Forzando limpieza de historial para @${cleanUsername}`);
             jugadores[cleanUsername].vidas = 3;
             jugadores[cleanUsername].respondidas = [];
             jugadores[cleanUsername].combo = 0;
-            socket.usernameClean = cleanUsername; // Aseguramos el enlace
+            // No tocamos los puntos totales del ranking acumulado, solo limpiamos la ronda.
             
-            socket.emit('game_resetted');
             guardarRankingEnDisco();
+            
+            // Avisamos al celular que limpie su pantalla visual y pida la pregunta 1
+            socket.emit('game_resetted');
+            
+            // Opcionalmente, mandamos el ranking actualizado a la TV
             enviarRanking();
         } else {
+            console.log(`⚠️ Solicitud de reset_game para usuario inexistente o socket huérfano: ${socket.id}`);
             // Parche de seguridad extrema: si se borró todo rastro, le avisamos para que vuelva a loguearse
             socket.emit('force_relogin');
         }
@@ -200,4 +204,4 @@ function enviarRanking() {
 }
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Servidor corriendo en puerto ${PORT}`));
+server.listen(PORT, () => console.log(`Servidor de Trivia Inmortal corriendo en puerto ${PORT}`));

@@ -34,7 +34,6 @@
             overflow: hidden;
         }
 
-        /* Layout de dos columnas: QR a la izquierda, Ranking a la derecha */
         .pantalla-layout {
             display: flex;
             width: 100%;
@@ -42,9 +41,9 @@
             gap: 30px;
             align-items: flex-start;
             margin-top: 10px;
+            flex: 1;
         }
 
-        /* Columna Izquierda: Bloque del QR */
         .bloque-qr-acceso {
             flex: 1;
             background: var(--blanco);
@@ -67,7 +66,6 @@
             color: var(--azul-oscuro);
         }
 
-        /* Contenedor del QR con marco prolijo */
         #contenedor-qr {
             background: white;
             padding: 20px;
@@ -84,7 +82,6 @@
             line-height: 1.4;
         }
 
-        /* Columna Derecha: Contenedor del Leaderboard */
         .contenedor-ranking {
             flex: 2;
             background: var(--blanco);
@@ -98,7 +95,6 @@
             min-height: 520px;
         }
 
-        /* Encabezado Principal Arriba */
         header {
             text-align: center;
             margin-bottom: 15px;
@@ -122,7 +118,6 @@
 
         @keyframes spin { 100% { transform: rotate(360deg); } }
 
-        /* Filas del Ranking */
         .fila-ranking {
             display: flex;
             align-items: center;
@@ -135,7 +130,6 @@
             font-weight: bold;
         }
 
-        /* Estilos para el PODIO (Top 3) */
         .fila-ranking.puesto-1 {
             background: #fff9db;
             border-left: 6px solid var(--amarillo-sol);
@@ -161,18 +155,9 @@
             gap: 15px;
         }
 
-        .numero-puesto {
-            min-width: 40px;
-            text-align: center;
-        }
-
-        .medalla {
-            font-size: 1.8rem;
-        }
-
-        .nombre-usuario {
-            color: var(--azul-oscuro);
-        }
+        .numero-puesto { min-width: 40px; text-align: center; }
+        .medalla { font-size: 1.8rem; }
+        .nombre-usuario { color: var(--azul-oscuro); }
 
         .puntos-usuario {
             color: #27ae60;
@@ -190,6 +175,43 @@
             color: #7f8c8d;
             font-style: italic;
         }
+
+        /* Footer Estilo Tecnoincas */
+        footer {
+            text-align: center;
+            padding: 15px 0 5px 0;
+            font-size: 0.95rem;
+            color: #7f8c8d;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .logo-tecnoincas {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: repeating-conic-gradient(from 0deg, var(--amarillo-sol) 0deg 30deg, #d4a314 30deg 60deg);
+            border: 2px solid #555;
+            display: inline-block;
+            position: relative;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+        }
+        .logo-tecnoincas::after {
+            content: '';
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #95a5a6;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border: 1px solid #555;
+        }
     </style>
 </head>
 <body>
@@ -200,39 +222,37 @@
     </header>
 
     <div class="pantalla-layout">
-        
         <div class="bloque-qr-acceso">
             <h2>¡Sumate a Jugar!</h2>
-            
             <div id="contenedor-qr"></div>
-            
             <p>Escaneá el código QR con tu celular,<br>ingresá tu Instagram y participá en vivo 🇦🇷</p>
         </div>
 
         <div class="contenedor-ranking" id="lista-leaderboard">
             <div class="sin-jugadores">Esperando que se conecten los primeros patriotas... 🇦🇷</div>
         </div>
-
     </div>
+
+    <footer>
+        <div class="logo-tecnoincas"></div>
+        <span>(R) Tecnoincas.com.ar</span>
+    </footer>
 
     <script>
         const socket = io();
         const contenedorLista = document.getElementById('lista-leaderboard');
 
-        // AUTO-GENERACIÓN DEL QR BASADO EN LA URL ACTUAL DE LA TV
-        // Esto toma dinámicamente el dominio (sea localhost:3000 o tu subdominio de Render)
         const urlTrivia = window.location.origin; 
         
         new QRCode(document.getElementById("contenedor-qr"), {
             text: urlTrivia,
             width: 260,
             height: 260,
-            colorDark : "#0d2c54", // Azul corporativo
+            colorDark : "#0d2c54",
             colorLight : "#ffffff",
             correctLevel : QRCode.CorrectLevel.H
         });
 
-        // Escucha el ranking en tiempo real enviado por server.js
         socket.on('update_ranking', (listaJugadores) => {
             if (!listaJugadores || listaJugadores.length === 0) {
                 contenedorLista.innerHTML = '<div class="sin-jugadores">Esperando que se conecten los primeros patriotas... 🇦🇷</div>';
@@ -240,8 +260,6 @@
             }
 
             contenedorLista.innerHTML = '';
-
-            // Tomamos los mejores 10 de la lista general
             const top10 = listaJugadores.slice(0, 10);
 
             top10.forEach((jugador, indice) => {

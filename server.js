@@ -38,19 +38,20 @@ function guardarRankingEnDisco() {
 io.on('connection', (socket) => {
     console.log('Dispositivo conectado:', socket.id);
 
-    // NUEVO: Apenas se conecta CUALQUIER pantalla (incluida la TV), le mandamos el ranking actual
-    // Esto evita que la TV aparezca vacía si se recarga en medio del evento
+    // Mandamos el ranking actual apenas se conecta la TV o el cel
     let listaAlConectar = Object.values(jugadores).sort((a, b) => b.puntos - a.puntos);
     socket.emit('update_ranking', listaAlConectar);
 
+    // SOLUCIÓN DEFINITIVA: Al ingresar o reenganchar, se limpia todo el historial de la ronda
     socket.on('join_game', (username) => {
         const cleanUsername = username.toLowerCase().replace('@', '').trim();
         
         if (jugadores[cleanUsername]) {
-            console.log(`🔄 Reenganchando a @${cleanUsername}`);
+            console.log(`🔄 Reenganchando y RESETEANDO historial para @${cleanUsername}`);
             jugadores[cleanUsername].vidas = 3;
-            jugadores[cleanUsername].respondidas = [];
+            jugadores[cleanUsername].respondidas = []; // <-- LIMPIEZA CRÚCIAL: Olvida las 10 preguntas viejas
             jugadores[cleanUsername].combo = 0;
+            jugadores[cleanUsername].puntos = 0; // Resetea los puntos para que empiece la revancha de cero
             jugadores[cleanUsername].socketId = socket.id;
         } else {
             jugadores[cleanUsername] = {
@@ -80,7 +81,7 @@ io.on('connection', (socket) => {
             return;
         }
 
-        // Condición 2: Ya respondió las 10 preguntas fijadas de su ronda
+        // Condición 2: Ya respondió las 10 preguntas de su ronda
         if (jugador.respondidas.length >= 10) {
             const puesto = obtenerPuesto(cleanUsername);
             socket.emit('game_completed', { puntos: jugador.puntos, puesto: puesto });
@@ -89,7 +90,6 @@ io.on('connection', (socket) => {
 
         const disponibles = preguntasTodo.filter(p => !jugador.respondidas.includes(p.id));
         if (disponibles.length === 0) {
-            // Si por alguna razón se acaban las preguntas globales antes de 10
             const puesto = obtenerPuesto(cleanUsername);
             socket.emit('game_completed', { puntos: jugador.puntos, puesto: puesto });
             return;
@@ -161,29 +161,18 @@ io.on('connection', (socket) => {
         enviarRanking();
     });
 
-    // CORREGIDO Y BLINDADO: Lógica de revancha atómica y forzada
+    // Evento de soporte por si el botón lo llama justo antes de reiniciar la URL
     socket.on('reset_game', () => {
         const cleanUsername = socket.usernameClean;
-
         if (cleanUsername && jugadores[cleanUsername]) {
-            // Reinicio estricto y total en la base de datos de Render
-            console.log(`🧹 Forzando limpieza de historial para @${cleanUsername}`);
+            console.log(`🧹 Reset manual solicitado para @${cleanUsername}`);
             jugadores[cleanUsername].vidas = 3;
             jugadores[cleanUsername].respondidas = [];
             jugadores[cleanUsername].combo = 0;
-            // No tocamos los puntos totales del ranking acumulado, solo limpiamos la ronda.
-            
+            jugadores[cleanUsername].puntos = 0;
             guardarRankingEnDisco();
-            
-            // Avisamos al celular que limpie su pantalla visual y pida la pregunta 1
             socket.emit('game_resetted');
-            
-            // Opcionalmente, mandamos el ranking actualizado a la TV
             enviarRanking();
-        } else {
-            console.log(`⚠️ Solicitud de reset_game para usuario inexistente o socket huérfano: ${socket.id}`);
-            // Parche de seguridad extrema: si se borró todo rastro, le avisamos para que vuelva a loguearse
-            socket.emit('force_relogin');
         }
     });
 
@@ -204,4 +193,4 @@ function enviarRanking() {
 }
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Servidor de Trivia Inmortal corriendo en puerto ${PORT}`));
+server.listen(PORT, () => console.log(`Servidor corriendo en puerto ${PORT}`));

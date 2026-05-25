@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trivia de Mayo 🇦🇷</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        .contenedor-movil { padding: 15px; max-width: 500px; margin: auto; font-family: sans-serif; }
+        .pantalla { display: none; }
+        .pantalla.activa { display: block; }
+        .teclado { display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px; margin-top: 15px; }
+        .teclado button { padding: 12px 2px; font-size: 1.1rem; font-weight: bold; background: #fff; border: 2px solid #74b9ff; border-radius: 5px; }
+        .teclado .btn-ancho { grid-column: span 2; background: #ff7675; color: white; border-color: #d63031; }
+        .teclado .btn-action { grid-column: span 2; background: #55efc4; border-color: #00b894; }
+        .input-ig { font-size: 1.5rem; width: 90%; padding: 10px; text-align: center; border: 2px solid #0d2c54; border-radius: 8px; margin-bottom: 10px; }
+        .opcion-btn { display: block; width: 100%; padding: 15px; margin: 10px 0; font-size: 1.2rem; font-weight: bold; background: white; border: 3px solid #74b9ff; border-radius: 10px; text-align: left; }
+        .header-juego { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 15px; background: #eccc68; padding: 10px; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <div class="contenedor-movil">
+        
+        <!-- PANTALLA 1: LOGIN INSTAGRAM -->
+        <div id="pantalla-login" class="pantalla activa">
+            <h2 style="color: #0d2c54;">¡Viva la Patria! ☀️</h2>
+            <p>Ingresá tu usuario de Instagram para ingresar a la Trivia oficial:</p>
+            <input type="text" id="username-display" class="input-ig" placeholder="@tu_usuario" readonly>
+            
+            <div class="teclado" id="teclado-virtual"></div>
+        </div>
+
+        <!-- PANTALLA 2: JUEGO -->
+        <div id="pantalla-juego" class="pantalla">
+            <div class="header-juego">
+                <span id="txt-usuario">@-</span>
+                <span id="txt-puntos">Puntos: 0</span>
+                <span id="txt-vidas">❤️ ❤️ ❤️</span>
+            </div>
+            <div id="txt-combo" style="color: #d63031; font-weight: bold; min-height: 20px;"></div>
+            
+            <h3 id="pregunta-titulo" style="margin: 20px 0; font-size: 1.4rem;">Cargando pregunta...</h3>
+            <div id="contenedor-opciones"></div>
+        </div>
+
+        <!-- PANTALLA 3: FIN DE JUEGO -->
+        <div id="pantalla-fin" class="pantalla">
+            <h2 id="fin-titulo">¡Fin de la partida! 🏛️</h2>
+            <p id="fin-mensaje"></p>
+            <h3 id="fin-puntos" style="font-size: 2rem; color: #0d2c54;">0 pts</h3>
+            <button class="opcion-btn" style="text-align:center; background: #eccc68;" onclick="revancha()">🔄 Volver a Jugar (Resetear)</button>
+        </div>
+
+    </div>
+
+    <script>
+        const socket = io();
+        let username = "";
+        let preguntaActual = null;
+        let intentoActual = 1;
+        let tiempoInicio = 0;
+
+        function playSound(type) {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+
+            if (type === 'click') {
+                osc.frequency.setValueAtTime(400, ctx.currentTime);
+                gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                osc.start(); osc.stop(ctx.currentTime + 0.05);
+            } else if (type === 'success') {
+                osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+                osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                osc.start(); osc.stop(ctx.currentTime + 0.25);
+            } else if (type === 'fail') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(80, ctx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                osc.start(); osc.stop(ctx.currentTime + 0.3);
+            } else if (type === 'combo') {
+                osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+                osc.frequency.setValueAtTime(880, ctx.currentTime + 0.08);
+                osc.frequency.setValueAtTime(1174.66, ctx.currentTime + 0.16);
+                gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                osc.start(); osc.stop(ctx.currentTime + 0.3);
+            }
+        }
+
+        const keys = [
+            '1','2','3','4','5','6','7','8','9','0',
+            'q','w','e','r','t','y','u','i','o','p',
+            'a','s','d','f','g','h','j','k','l','_',
+            'z','x','c','v','b','n','m','.','-','@'
+        ];
+        const teclado = document.getElementById('teclado-virtual');
+        
+        keys.forEach(key => {
+            const btn = document.createElement('button');
+            btn.innerText = key;
+            btn.onclick = () => {
+                playSound('click');
+                if (username.length < 20) {
+                    username += key;
+                    document.getElementById('username-display').value = username;
+                }
+            };
+            teclado.appendChild(btn);
+        });
+
+        const btnBorrar = document.createElement('button');
+        btnBorrar.innerText = '⌫';
+        btnBorrar.className = 'btn-ancho';
+        btnBorrar.onclick = () => {
+            playSound('click');
+            username = username.slice(0, -1);
+            document.getElementById('username-display').value = username;
+        };
+        teclado.appendChild(btnBorrar);
+
+        const btnJugar = document.createElement('button');
+        btnJugar.innerText = '¡JUGAR! 🇦🇷';
+        btnJugar.className = 'btn-action';
+        btnJugar.onclick = () => {
+            if (username.trim().length > 2) {
+                playSound('success');
+                document.getElementById('txt-usuario').innerText = username;
+                socket.emit('join_game', username);
+                cambiarPantalla('pantalla-juego');
+                socket.emit('get_pregunta');
+            } else {
+                alert('Poné un usuario válido de Instagram para registrar tus puntos.');
+            }
+        };
+        teclado.appendChild(btnJugar);
+
+        function cambiarPantalla(id) {
+            document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('activa'));
+            document.getElementById(id).classList.add('activa');
+        }
+
+        socket.on('pregunta_data', (data) => {
+            preguntaActual = data;
+            intentoActual = 1;
+            tiempoInicio = Date.now();
+
+            document.getElementById('pregunta-titulo').innerText = data.pregunta;
+            const contenedor = document.getElementById('contenedor-opciones');
+            contenedor.innerHTML = '';
+
+            data.opciones.forEach(opcion => {
+                const btn = document.createElement('button');
+                btn.className = 'opcion-btn';
+                btn.innerText = opcion;
+                btn.onclick = () => responder(opcion, btn);
+                contenedor.appendChild(btn);
+            });
+        });
+
+        function responder(opcionSeleccionada, boton) {
+            const tiempoEmpleado = (Date.now() - tiempoInicio) / 1000;
+            document.querySelectorAll('.opcion-btn').forEach(b => b.disabled = true);
+
+            socket.emit('enviar_respuesta', {
+                preguntaId: preguntaActual.id,
+                respuesta: opcionSeleccionada,
+                intento: intentoActual,
+                tiempoEmpleado: tiempoEmpleado
+            });
+        }
+
+        socket.on('resultado_respuesta', (res) => {
+            if (res.correcta) {
+                playSound('success');
+                document.getElementById('txt-puntos').innerText = `Puntos: ${res.puntos}`;
+                
+                if ([3, 6, 9, 12].includes(res.combo)) {
+                    playSound('combo');
+                    document.getElementById('txt-combo').innerText = `🔥 ¡COMBO x${res.combo === 3 ? 2 : res.combo === 6 ? 4 : res.combo === 9 ? 6 : 10}! 🔥`;
+                } else {
+                    document.getElementById('txt-combo').innerText = `Racha: ${res.combo} seguidas`;
+                }
+                
+                setTimeout(() => socket.emit('get_pregunta'), 1000);
+            } else {
+                playSound('fail');
+                if (res.intento === 1) {
+                    intentoActual = 2;
+                    alert('❌ ¡Incorrecto! Tenés un segundo intento por la mitad de puntos.');
+                    document.querySelectorAll('.opcion-btn').forEach(b => b.disabled = false);
+                } else {
+                    document.getElementById('txt-combo').innerText = "";
+                    actualizarVidas(res.vidas);
+                    setTimeout(() => socket.emit('get_pregunta'), 1000);
+                }
+            }
+        });
+
+        function actualizarVidas(vidas) {
+            let coras = "";
+            for(let i=0; i<3; i++) {
+                coras += i < vidas ? "❤️ " : "🖤 ";
+            }
+            document.getElementById('txt-vidas').innerText = coras;
+        }
+
+        socket.on('game_over', (res) => {
+            cambiarPantalla('pantalla-fin');
+            document.getElementById('fin-titulo').innerText = "¡Derrota Colonial! 🖤";
+            document.getElementById('fin-mensaje').innerText = "Te quedaste sin vidas. Pero la revolución no se detiene, podés volver a intentar superarte.";
+            document.getElementById('fin-puntos').innerText = `${res.puntos} pts`;
+        });
+
+        socket.on('game_completed', (res) => {
+            cambiarPantalla('pantalla-fin');
+            document.getElementById('fin-titulo').innerText = "¡Héroe de la Patria! 🥇🇦🇷";
+            document.getElementById('fin-mensaje').innerText = "¡Completaste las 12 preguntas con éxito! Tu puntaje quedó guardado en el Leaderboard.";
+            document.getElementById('fin-puntos').innerText = `${res.puntos} pts`;
+        });
+
+        function revancha() {
+            playSound('click');
+            socket.emit('reset_game');
+        }
+
+        socket.on('game_resetted', () => {
+            document.getElementById('txt-puntos').innerText = "Puntos: 0";
+            document.getElementById('txt-vidas').innerText = "❤️ ❤️ ❤️";
+            document.getElementById('txt-combo').innerText = "";
+            cambiarPantalla('pantalla-juego');
+            socket.emit('get_pregunta');
+        });
+    </script>
+</body>
+</html>

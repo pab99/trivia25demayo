@@ -1,0 +1,74 @@
+[
+  {
+    "id": 1,
+    "pregunta": "¿En qué año se formó la Primera Junta?",
+    "correcta": "1810",
+    "incorrectas": ["1816", "1806"]
+  },
+  {
+    "id": 2,
+    "pregunta": "¿Quién fue el presidente de la Primera Junta?",
+    "correcta": "Cornelio Saavedra",
+    "incorrectas": ["Mariano Moreno", "Juan José Paso"]
+  },
+  {
+    "id": 3,
+    "pregunta": "¿Qué repartían French y Beruti en la Plaza de Mayo?",
+    "correcta": "Cintas celestes y blancas",
+    "incorrectas": ["Escarapelas rojas", "Pastelitos de dulce de leche"]
+  },
+  {
+    "id": 4,
+    "pregunta": "¿Dónde se reunían secretamente los revolucionarios?",
+    "correcta": "Jabonería de Vieytes",
+    "incorrectas": ["Cabildo de Buenos Aires", "Casa de Tucumán"]
+  },
+  {
+    "id": 5,
+    "pregunta": "¿Quién fue el virrey destituido el 25 de mayo de 1810?",
+    "correcta": "Baltasar Hidalgo de Cisneros",
+    "incorrectas": ["Santiago de Liniers", "Rafael de Sobremonte"]
+  },
+  {
+    "id": 6,
+    "pregunta": "¿Qué cuerpo militar lideraba Cornelio Saavedra?",
+    "correcta": "Regimiento de Patricios",
+    "incorrectas": ["Granaderos a Caballo", "Blandengues"]
+  },
+  {
+    "id": 7,
+    "pregunta": "¿Quiénes fueron los secretarios de la Primera Junta?",
+    "correcta": "Mariano Moreno y Juan José Paso",
+    "incorrectas": ["Juan José Castelli y Manuel Belgrano", "Manuel Alberti y Miguel de Azcuénaga"]
+  },
+  {
+    "id": 8,
+    "pregunta": "¿Cuál era el diario oficial fundado por Mariano Moreno?",
+    "correcta": "Gazeta de Buenos Ayres",
+    "incorrectas": ["El Telégrafo Mercantil", "La Nación Autónoma"]
+  },
+  {
+    "id": 9,
+    "pregunta": "¿Qué se celebró el 22 de mayo de 1810?",
+    "correcta": "Un Cabildo Abierto",
+    "incorrectas": ["La destitución formal del Virrey", "La jura de la Independencia"]
+  },
+  {
+    "id": 10,
+    "pregunta": "¿Qué parentesco tenían Manuel Belgrano y Juan José Castelli?",
+    "correcta": "Primos",
+    "incorrectas": ["Hermanos", "Tío y sobrino"]
+  },
+  {
+    "id": 11,
+    "pregunta": "¿Cuál era la principal profesión de Manuel Belgrano en 1810?",
+    "correcta": "Abogado y Economista",
+    "incorrectas": ["Militar de carrera", "Sacerdote"]
+  },
+  {
+    "id": 12,
+    "pregunta": "¿Qué monarca español había sido depuesto por Napoleón?",
+    "correcta": "Fernando VII",
+    "incorrectas": ["Carlos III", "Alfonso XII"]
+  }
+]

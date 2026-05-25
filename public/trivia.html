@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Gran Trivia de Mayo 🇦🇷</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body class="pantalla-gigante">
+
+    <header>
+        <h1>¡Feliz 25 de Mayo! 🏛️☀️🇦🇷</h1>
+        <h2>Escaneá el QR y participá en vivo</h2>
+    </header>
+
+    <main class="contenedor-trivia">
+        <!-- Izquierda: QR Fijo -->
+        <section class="seccion-qr">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=https://trivia25demayo.onrender.com" alt="QR Trivia">
+            <div class="url-text">trivia25demayo.onrender.com</div>
+        </section>
+
+        <!-- Derecha: Tabla de posiciones en vivo -->
+        <section class="seccion-leaderboard">
+            <h3>Leaderboard Patriótico 🏆</h3>
+            <ul id="lista-ranking">
+                <!-- Se llena por WebSockets -->
+            </ul>
+        </section>
+    </main>
+
+    <!-- Abajo: Loop de Curiosidades Históricas -->
+    <footer class="ticker-curiosidades">
+        <div id="texto-curiosidad" class="curiosidad-impactante">
+            Sabías que... ¡La destitución del Virrey Cisneros se decidió en el Cabildo Abierto!
+        </div>
+    </footer>
+
+    <script>
+        const socket = io();
+        
+        socket.on('update_ranking', (ranking) => {
+            const lista = document.getElementById('lista-ranking');
+            lista.innerHTML = '';
+            
+            ranking.slice(0, 10).forEach((jugador, index) => {
+                let medalla = '';
+                if(index === 0) medalla = '🥇 ';
+                if(index === 1) medalla = '🥈 ';
+                if(index === 2) medalla = '🥉 ';
+                
+                lista.innerHTML += `<li>${medalla}<strong>@${jugador.username}</strong>: ${jugador.puntos} pts</li>`;
+            });
+        });
+
+        const curiosidades = [
+            "¿Sabías que el 25 de mayo de 1810 amaneció lluvioso y frío en Buenos Aires?",
+            "¿Sabías que la Jabonería de Vieytes era el búnker secreto de los revolucionarios?",
+            "¿Sabías que Cornelio Saavedra era el jefe del Regimiento de Patricios?",
+            "¿Sabías que Belgrano y Castelli eran primos y líderes del ala más radical?",
+            "¿Sabías que los pastelitos y las empanadas eran la comida rápida de la época colonial?"
+        ];
+        let indexCuriosidad = 0;
+        setInterval(() => {
+            indexCuriosidad = (indexCuriosidad + 1) % curiosidades.length;
+            const elemento = document.getElementById('texto-curiosidad');
+            elemento.style.opacity = 0;
+            setTimeout(() => {
+                elemento.innerText = curiosidades[indexCuriosidad];
+                elemento.style.opacity = 1;
+            }, 500);
+        }, 8000);
+    </script>
+</body>
+</html>

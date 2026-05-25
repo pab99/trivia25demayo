@@ -1,4 +1,5 @@
-        const express = require('express');
+
+const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const fs = require('fs');
@@ -10,9 +11,35 @@ const io = new Server(server);
 
 app.use(express.static('public'));
 
-const preguntasTodo = JSON.parse(fs.readFileSync(path.join(__dirname, 'preguntas.json'), 'utf8'));
+// Rutas de archivos
+const PREGUNTAS_PATH = path.join(__dirname, 'preguntas.json');
+const RANKING_PATH = path.join(__dirname, 'ranking_persistente.json');
 
-let jugadores = {}; // { username: { username, puntos, vidas, respondidas: [], combo } }
+// Cargar preguntas históricas
+const preguntasTodo = JSON.parse(fs.readFileSync(PREGUNTAS_PATH, 'utf8'));
+
+// Cargar ranking guardado previamente (si existe) para no perder nada al reiniciar
+let jugadores = {};
+if (fs.existsSync(RANKING_PATH)) {
+    try {
+        jugadores = JSON.parse(fs.readFileSync(RANKING_PATH, 'utf8'));
+        console.log('📦 Base de datos local cargada con éxito. Jugadores recuperados:', Object.keys(jugadores).length);
+    } catch (err) {
+        console.log('⚠️ Error al leer el archivo de ranking persistente, iniciando vacío:', err.message);
+        jugadores = {};
+    }
+} else {
+    console.log('📝 No se encontró ranking previo. Iniciando base de datos limpia.');
+}
+
+// Función auxiliar para guardar el estado actual en el disco rígido virtual
+function guardarRankingEnDisco() {
+    try {
+        fs.writeFileSync(RANKING_PATH, JSON.stringify(jugadores, null, 2), 'utf8');
+    } catch (err) {
+        console.log('❌ Error crítico al escribir el ranking en disco:', err.message);
+    }
+}
 
 io.on('connection', (socket) => {
     console.log('Usuario conectado:', socket.id);
@@ -20,16 +47,28 @@ io.on('connection', (socket) => {
     socket.on('join_game', (username) => {
         const cleanUsername = username.toLowerCase().replace('@', '').trim();
         
-        jugadores[cleanUsername] = {
-            username: cleanUsername,
-            puntos: 0,
-            vidas: 3,
-            respondidas: [], // IDs de preguntas hechas en ESTA ronda
-            combo: 0,
-            socketId: socket.id
-        };
+        // Si el jugador YA EXISTÍA en el archivo, mantenemos sus puntos acumulados históricos
+        if (jugadores[cleanUsername]) {
+            console.log(`🔄 Reenganchando a @${cleanUsername}. Puntos previos: ${jugadores[cleanUsername].puntos}`);
+            // Reseteamos las variables de la ronda actual pero preservamos su score máximo acumulado
+            jugadores[cleanUsername].vidas = 3;
+            jugadores[cleanUsername].respondidas = [];
+            jugadores[cleanUsername].combo = 0;
+            jugadores[cleanUsername].socketId = socket.id;
+        } else {
+            // Si es un jugador nuevo absoluto, lo creamos de cero
+            jugadores[cleanUsername] = {
+                username: cleanUsername,
+                puntos: 0,
+                vidas: 3,
+                respondidas: [],
+                combo: 0,
+                socketId: socket.id
+            };
+        }
         
         socket.usernameClean = cleanUsername;
+        guardarRankingEnDisco(); // Salvaguarda el estado por cualquier inconveniente
         enviarRanking();
     });
 
@@ -38,25 +77,20 @@ io.on('connection', (socket) => {
         const jugador = jugadores[cleanUsername];
         if (!jugador) return;
 
-        // Condición 1: Se quedó sin vidas
         if (jugador.vidas <= 0) {
             const puesto = obtenerPuesto(cleanUsername);
             socket.emit('game_over', { puntos: jugador.puntos, puesto: puesto });
             return;
         }
 
-        // Condición 2: Ya respondió las 10 preguntas fijadas de su ronda
         if (jugador.respondidas.length >= 10) {
             const puesto = obtenerPuesto(cleanUsername);
             socket.emit('game_completed', { puntos: jugador.puntos, puesto: puesto });
             return;
         }
 
-        // Buscar preguntas que NO haya respondido en este intento actual
         const disponibles = preguntasTodo.filter(p => !jugador.respondidas.includes(p.id));
-        
         if (disponibles.length === 0) {
-            // Si por alguna razón se acaban las preguntas globales antes de 10
             const puesto = obtenerPuesto(cleanUsername);
             socket.emit('game_completed', { puntos: jugador.puntos, puesto: puesto });
             return;
@@ -68,6 +102,7 @@ io.on('connection', (socket) => {
         socket.emit('pregunta_data', {
             id: pregunta.id,
             pregunta: pregunta.pregunta,
+            options: opciones, // Mantenemos compatibilidad con tu frontend
             opciones: opciones,
             numeroPregunta: jugador.respondidas.length + 1
         });
@@ -78,7 +113,6 @@ io.on('connection', (socket) => {
         const jugador = jugadores[cleanUsername];
         if (!jugador) return;
 
-        // CASO ESPECIAL: Se agotó el tiempo en el celular
         if (respuesta === "__TIEMPO_AGOTADO__") {
             jugador.respondidas.push(preguntaId);
             jugador.vidas -= 1;
@@ -90,6 +124,7 @@ io.on('connection', (socket) => {
                 intento: 2, 
                 vidas: jugador.vidas 
             });
+            guardarRankingEnDisco();
             enviarRanking();
             return;
         }
@@ -115,29 +150,28 @@ io.on('connection', (socket) => {
 
             socket.emit('resultado_respuesta', { correcta: true, puntos: jugador.puntos, combo: jugador.combo });
         } else {
-            // Es incorrecta
             if (intento === 1) {
-                // Primer error silencioso: avisamos al cliente que gaste su intento
                 socket.emit('resultado_respuesta', { correcta: false, intento: 1 });
             } else {
-                // Segundo error en la misma pregunta: quita vida, rompe racha y avanza
                 jugador.respondidas.push(preguntaId);
                 jugador.vidas -= 1;
                 jugador.combo = 0;
                 socket.emit('resultado_respuesta', { correcta: false, intento: 2, vidas: jugador.vidas });
             }
         }
+        guardarRankingEnDisco(); // Guardado automático tras cada respuesta procesada
         enviarRanking();
     });
 
     socket.on('reset_game', () => {
         const cleanUsername = socket.usernameClean;
         if (jugadores[cleanUsername]) {
-            jugadores[cleanUsername].puntos = 0;
+            // Mantenemos los puntos totales del ranking acumulado, pero reseteamos la ronda de preguntas
             jugadores[cleanUsername].vidas = 3;
             jugadores[cleanUsername].respondidas = [];
             jugadores[cleanUsername].combo = 0;
             socket.emit('game_resetted');
+            guardarRankingEnDisco();
             enviarRanking();
         }
     });
@@ -159,4 +193,4 @@ function enviarRanking() {
 }
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Servidor patrio corriendo en puerto ${PORT}`));
+server.listen(PORT, () => console.log(`Servidor patrio e inmortal corriendo en puerto ${PORT}`));

@@ -188,12 +188,12 @@
             <h2 id="fin-titulo" style="font-size: 1.8rem;">¡Fin de la partida!</h2>
             <p id="fin-mensaje" style="color: #57606f; line-height: 1.4; margin-bottom: 5px;"></p>
             
-            <div id="fin-puesto" class="badge-puesto">Puesto: #--</div>
+            <div id="fin-puesto" class="badge-puesto">Puesto Actual: #--</div>
             
             <div style="font-size: 1.1rem; color: #7f8c8d; margin-top: 5px;">Puntaje obtenido final:</div>
             <h3 id="fin-puntos" style="font-size: 2.5rem; color: var(--azul-oscuro); margin: 10px 0;">0 pts</h3>
             
-            <button class="opcion-btn" style="text-align:center; background: var(--azul-oscuro); color: white; border-color: var(--azul-oscuro);" onclick="revancha()">🔄 Volver a Jugar (Revancha)</button>
+            <button class="opcion-btn" id="btn-revancha" style="text-align:center; background: var(--azul-oscuro); color: white; border-color: var(--azul-oscuro); cursor: pointer;" onclick="revancha()">🔄 Volver a Jugar (Revancha)</button>
         </div>
 
     </div>
@@ -214,9 +214,10 @@
             try {
                 if ('wakeLock' in navigator) {
                     wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Wake Lock Activo');
                 }
             } catch (err) {
-                console.log('Wake Lock no soportado en este navegador móvil');
+                console.log('Wake Lock denegado:', err.message);
             }
         }
 
@@ -444,7 +445,7 @@
             clearInterval(timerInterval);
             cambiarPantalla('pantalla-fin');
             document.getElementById('fin-titulo').innerText = "¡Derrota Colonial! 🖤";
-            document.getElementById('fin-mensaje').innerText = "Te quedaste sin vidas. ¡Mirá tu posición en la tabla general!";
+            document.getElementById('fin-mensaje').innerText = "Te quedaste sin vidas o el tiempo. ¡Mirá la tabla general en la pantalla gigante!";
             document.getElementById('fin-puesto').innerText = `Puesto Actual: #${res.puesto}`;
             document.getElementById('fin-puntos').innerText = `${puntosLocales} pts`;
         });
@@ -458,10 +459,12 @@
             document.getElementById('fin-puntos').innerText = `${puntosLocales} pts`;
         });
 
-        // NUEVA FUNCIÓN: Forzado local instantáneo y llamada directa al backend
+        // NUEVA FUNCIÓN REVANCHA BLINDADA (LOCAL Y ATÓMICA)
         function revancha() {
             playSound('click');
             
+            // 1. LIMPIEZA VISUAL INMEDIATA EN EL CELULAR
+            // Restablecemos todas las variables locales a cero, sin depender del servidor para la interfaz.
             intentoActual = 1;
             puntosLocales = 0;
             document.getElementById('txt-puntos').innerText = "Pts: 0";
@@ -471,9 +474,16 @@
             document.getElementById('pregunta-titulo').innerText = "Cargando pregunta...";
             document.getElementById('contenedor-opciones').innerHTML = "";
 
+            // 2. SALTAMOS DE PANTALLA YA MISMO
+            // No esperamos a que el servidor confirme la limpieza, saltamos de prepo a la acción.
+            cambiarPantalla('pantalla-juego');
+
+            // 3. ENVIAMOS LA ORDEN DE REINICIO AL SERVIDOR (Aseguramos que limpie el TXT)
+            // Esta llamada es fundamental para que el servidor no vuelva a mostrar la pantalla de fin.
             socket.emit('reset_game');
 
-            cambiarPantalla('pantalla-juego');
+            // 4. EXIGIMOS LA PRIMERA PREGUNTA
+            // Esta llamada ahora va por separado del reset_game, garantizando el flujo.
             socket.emit('get_pregunta');
         }
 

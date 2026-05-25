@@ -152,6 +152,7 @@
             <p id="fin-mensaje" style="color: #57606f; line-height: 1.4;"></p>
             <div style="font-size: 1.1rem; color: #7f8c8d;">Puntaje obtenido en esta ronda:</div>
             <h3 id="fin-puntos" style="font-size: 2.5rem; color: var(--azul-oscuro); margin: 10px 0;">0 pts</h3>
+            
             <button class="opcion-btn" style="text-align:center; background: var(--azul-oscuro); color: white; border-color: var(--azul-oscuro);" onclick="revancha()">🔄 Volver a Jugar (Revancha)</button>
         </div>
 
@@ -201,7 +202,7 @@
                     gain.gain.setValueAtTime(0.15, ctx.currentTime);
                     osc.start(); osc.stop(ctx.currentTime + 0.3);
                 }
-            } catch(e) { console.log("Audio deshabilitado"); }
+            } catch(e) { console.log("Audio deshabilitado por el navegador"); }
         }
 
         const keys = [

@@ -12,33 +12,38 @@ app.use(express.static('public'));
 
 const preguntas = JSON.parse(fs.readFileSync(path.join(__dirname, 'preguntas.json'), 'utf8'));
 
-let jugadores = {}; // { socketId: { username, puntos, vidas, respondidas: [], combo } }
+let jugadores = {}; // { socketId/username: { username, puntos, vidas, respondidas: [], combo } }
 
 io.on('connection', (socket) => {
     console.log('Usuario conectado:', socket.id);
 
     socket.on('join_game', (username) => {
-        jugadores[socket.id] = {
-            username: username.toLowerCase().replace('@', '').trim(),
+        const cleanUsername = username.toLowerCase().replace('@', '').trim();
+        
+        // Si el usuario ya existía de un intento previo, lo reenganchamos o reseteamos su sesión actual
+        // pero manteniendo su registro en el objeto global para el leaderboard
+        jugadores[cleanUsername] = {
+            username: cleanUsername,
             puntos: 0,
             vidas: 3,
             respondidas: [],
-            combo: 0
+            combo: 0,
+            socketId: socket.id // Vinculamos su socket actual
         };
+        
+        // Guardamos también una referencia por socket para saber quién responde
+        socket.usernameClean = cleanUsername;
+        
         enviarRanking();
     });
 
     socket.on('get_pregunta', () => {
-        const jugador = jugadores[socket.id];
+        const cleanUsername = socket.usernameClean;
+        const jugador = jugadores[cleanUsername];
         if (!jugador) return;
 
         if (jugador.vidas <= 0) {
             socket.emit('game_over', { puntos: jugador.puntos });
-            return;
-        }
-
-        if (jugador.respondidas.length >= 12) {
-            socket.emit('game_completed', { puntos: jugador.puntos });
             return;
         }
 
@@ -59,7 +64,8 @@ io.on('connection', (socket) => {
     });
 
     socket.on('enviar_respuesta', ({ preguntaId, respuesta, intento, tiempoEmpleado }) => {
-        const jugador = jugadores[socket.id];
+        const cleanUsername = socket.usernameClean;
+        const jugador = jugadores[cleanUsername];
         if (!jugador) return;
 
         const pregunta = preguntas.find(p => p.id === preguntaId);
@@ -96,23 +102,26 @@ io.on('connection', (socket) => {
     });
 
     socket.on('reset_game', () => {
-        if (jugadores[socket.id]) {
-            jugadores[socket.id].puntos = 0;
-            jugadores[socket.id].vidas = 3;
-            jugadores[socket.id].respondidas = [];
-            jugadores[socket.id].combo = 0;
+        const cleanUsername = socket.usernameClean;
+        if (jugadores[cleanUsername]) {
+            jugadores[cleanUsername].puntos = 0;
+            jugadores[cleanUsername].vidas = 3;
+            jugadores[cleanUsername].respondidas = [];
+            jugadores[cleanUsername].combo = 0;
             socket.emit('game_resetted');
             enviarRanking();
         }
     });
 
     socket.on('disconnect', () => {
-        delete jugadores[socket.id];
-        enviarRanking();
+        console.log('Usuario desconectado:', socket.id);
+        // IMPORTANTE: Ya NO eliminamos al jugador de la lista. 
+        // Su intento queda guardado de forma permanente para el Leaderboard gigante.
     });
 });
 
 function enviarRanking() {
+    // Ordenamos de mayor a menor puntaje para la pantalla gigante
     let lista = Object.values(jugadores)
         .sort((a, b) => b.puntos - a.puntos);
     io.emit('update_ranking', lista);

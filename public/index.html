@@ -458,22 +458,29 @@
             document.getElementById('fin-puntos').innerText = `${puntosLocales} pts`;
         });
 
+        // NUEVA FUNCIÓN: Forzado local instantáneo y llamada directa al backend
         function revancha() {
             playSound('click');
+            
+            intentoActual = 1;
             puntosLocales = 0;
             document.getElementById('txt-puntos').innerText = "Pts: 0";
             document.getElementById('txt-vidas').innerText = "❤️ ❤️ ❤️";
             document.getElementById('txt-combo').innerText = "";
             document.getElementById('txt-pregunta-num').innerText = "Pregunta 1/10";
+            document.getElementById('pregunta-titulo').innerText = "Cargando pregunta...";
+            document.getElementById('contenedor-opciones').innerHTML = "";
+
             socket.emit('reset_game');
+
+            cambiarPantalla('pantalla-juego');
+            socket.emit('get_pregunta');
         }
 
         socket.on('game_resetted', () => {
-            cambiarPantalla('pantalla-juego');
-            socket.emit('get_pregunta');
+            console.log("Servidor reinició la ronda con éxito.");
         });
 
-        // RECEPTOR DE RESCATE: Si la sesión del socket expiró, limpia la pantalla de ingreso
         socket.on('force_relogin', () => {
             username = "";
             document.getElementById('username-display').value = "";

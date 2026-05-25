@@ -2,74 +2,217 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Gran Trivia de Mayo 🇦🇷</title>
-    <link rel="stylesheet" href="css/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaderboard - Gran Trivia de Mayo 🇦🇷</title>
     <script src="/socket.io/socket.io.js"></script>
+    <style>
+        :root {
+            --celeste: #74b9ff;
+            --azul-oscuro: #0d2c54;
+            --amarillo-sol: #fbcb3b;
+            --blanco: #ffffff;
+            --gris-fondo: #f5f6fa;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: radial-gradient(circle, var(--blanco) 0%, #e3f2fd 100%);
+            color: var(--azul-oscuro);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 30px;
+            overflow: hidden;
+        }
+
+        /* Encabezado Principal */
+        header {
+            text-align: center;
+            margin-bottom: 25px;
+            width: 100%;
+            max-width: 900px;
+        }
+
+        header h1 {
+            font-size: 3.2rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--azul-oscuro);
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 5px;
+        }
+
+        header p {
+            font-size: 1.4rem;
+            color: #57606f;
+            font-weight: 600;
+        }
+
+        .sol-patrio {
+            font-size: 3.5rem;
+            animation: spin 20s linear infinite;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* Contenedor del Leaderboard */
+        .contenedor-ranking {
+            width: 100%;
+            max-width: 950px;
+            background: var(--blanco);
+            border: 4px solid var(--azul-oscuro);
+            border-radius: 24px;
+            box-shadow: 0px 20px 40px rgba(13, 44, 84, 0.2);
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* Filas del Ranking */
+        .fila-ranking {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 25px;
+            background: var(--gris-fondo);
+            border-radius: 14px;
+            border-left: 8px solid #ced4da;
+            transition: all 0.4s ease-in-out;
+            font-size: 1.6rem;
+            font-weight: bold;
+        }
+
+        /* Estilos para el PODIO (Top 3) */
+        .fila-ranking.puesto-1 {
+            background: #fff9db;
+            border-left: 8px solid var(--amarillo-sol);
+            transform: scale(1.02);
+            font-size: 2rem;
+            padding: 18px 30px;
+            box-shadow: 0px 4px 15px rgba(251, 203, 59, 0.25);
+        }
+        .fila-ranking.puesto-2 {
+            background: #f1f2f6;
+            border-left: 8px solid #a4b0be;
+            font-size: 1.8rem;
+        }
+        .fila-ranking.puesto-3 {
+            background: #faf0e6;
+            border-left: 8px solid #cd7f32;
+            font-size: 1.7rem;
+        }
+
+        .izquierda-bloque {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .numero-puesto {
+            min-width: 50px;
+            text-align: center;
+        }
+
+        .medalla {
+            font-size: 2.2rem;
+        }
+
+        .nombre-usuario {
+            color: var(--azul-oscuro);
+        }
+
+        .puntos-usuario {
+            color: #27ae60;
+            background: rgba(46, 204, 113, 0.1);
+            padding: 4px 16px;
+            border-radius: 30px;
+            text-align: right;
+            min-width: 150px;
+        }
+
+        /* Estado de Espera (Sin jugadores aún) */
+        .sin-jugadores {
+            text-align: center;
+            padding: 50px;
+            font-size: 1.8rem;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+    </style>
 </head>
-<body class="pantalla-gigante">
+<body>
 
     <header>
-        <h1>¡Feliz 25 de Mayo! 🏛️☀️🇦🇷</h1>
-        <h2>Escaneá el QR y participá en vivo</h2>
+        <div class="sol-patrio">☀️</div>
+        <h1>Tabla de Posiciones</h1>
+        <p>Escaneá el QR, ingresá tu usuario y sumá puntos en vivo 🇦🇷</p>
     </header>
 
-    <main class="contenedor-trivia">
-        <!-- Izquierda: QR Fijo -->
-        <section class="seccion-qr">
-            <img src="https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=https://trivia25demayo.onrender.com" alt="QR Trivia">
-            <div class="url-text">trivia25demayo.onrender.com</div>
-        </section>
-
-        <!-- Derecha: Tabla de posiciones en vivo -->
-        <section class="seccion-leaderboard">
-            <h3>Leaderboard Patriótico 🏆</h3>
-            <ul id="lista-ranking">
-                <!-- Se llena por WebSockets -->
-            </ul>
-        </section>
-    </main>
-
-    <!-- Abajo: Loop de Curiosidades Históricas -->
-    <footer class="ticker-curiosidades">
-        <div id="texto-curiosidad" class="curiosidad-impactante">
-            Sabías que... ¡La destitución del Virrey Cisneros se decidió en el Cabildo Abierto!
-        </div>
-    </footer>
+    <!-- La TV va a renderizar la lista acá adentro -->
+    <div class="contenedor-ranking" id="lista-leaderboard">
+        <div class="sin-jugadores">Esperando que se conecten los primeros patriotas... 🇦🇷</div>
+    </div>
 
     <script>
         const socket = io();
-        
-        socket.on('update_ranking', (ranking) => {
-            const lista = document.getElementById('lista-ranking');
-            lista.innerHTML = '';
-            
-            ranking.slice(0, 10).forEach((jugador, index) => {
-                let medalla = '';
-                if(index === 0) medalla = '🥇 ';
-                if(index === 1) medalla = '🥈 ';
-                if(index === 2) medalla = '🥉 ';
+        const contenedorLista = document.getElementById('lista-leaderboard');
+
+        // Escucha el ranking en tiempo real enviado por server.js
+        socket.on('update_ranking', (listaJugadores) => {
+            // Si no hay jugadores cargados en la base persistente
+            if (!listaJugadores || listaJugadores.length === 0) {
+                contenedorLista.innerHTML = '<div class="sin-jugadores">Esperando que se conecten los primeros patriotas... 🇦🇷</div>';
+                return;
+            }
+
+            // Limpiamos el contenedor
+            contenedorLista.innerHTML = '';
+
+            // Tomamos los mejores 10 de la lista general
+            const top10 = listaJugadores.slice(0, 10);
+
+            top10.forEach((jugador, indice) => {
+                const numPuesto = indice + 1;
+                const fila = document.createElement('div');
                 
-                lista.innerHTML += `<li>${medalla}<strong>@${jugador.username}</strong>: ${jugador.puntos} pts</li>`;
+                // Clases base y específicas de podio para estilos dinámicos
+                let clasePuesto = 'fila-ranking';
+                let indicadorPuesto = `#${numPuesto}`;
+
+                if (numPuesto === 1) {
+                    clasePuesto += ' puesto-1';
+                    indicadorPuesto = '<span class="medalla">🥇</span>';
+                } else if (numPuesto === 2) {
+                    clasePuesto += ' puesto-2';
+                    indicadorPuesto = '<span class="medalla">🥈</span>';
+                } else if (numPuesto === 3) {
+                    clasePuesto += ' puesto-3';
+                    indicadorPuesto = '<span class="medalla">🥉</span>';
+                }
+
+                fila.className = clasePuesto;
+                fila.innerHTML = `
+                    <div class="izquierda-bloque">
+                        <div class="numero-puesto">${indicadorPuesto}</div>
+                        <div class="nombre-usuario">@${jugador.username}</div>
+                    </div>
+                    <div class="puntos-usuario">${jugador.puntos} pts</div>
+                `;
+                
+                contenedorLista.appendChild(fila);
             });
         });
-
-        const curiosidades = [
-            "¿Sabías que el 25 de mayo de 1810 amaneció lluvioso y frío en Buenos Aires?",
-            "¿Sabías que la Jabonería de Vieytes era el búnker secreto de los revolucionarios?",
-            "¿Sabías que Cornelio Saavedra era el jefe del Regimiento de Patricios?",
-            "¿Sabías que Belgrano y Castelli eran primos y líderes del ala más radical?",
-            "¿Sabías que los pastelitos y las empanadas eran la comida rápida de la época colonial?"
-        ];
-        let indexCuriosidad = 0;
-        setInterval(() => {
-            indexCuriosidad = (indexCuriosidad + 1) % curiosidades.length;
-            const elemento = document.getElementById('texto-curiosidad');
-            elemento.style.opacity = 0;
-            setTimeout(() => {
-                elemento.innerText = curiosidades[indexCuriosidad];
-                elemento.style.opacity = 1;
-            }, 500);
-        }, 8000);
     </script>
 </body>
 </html>

@@ -216,7 +216,7 @@
                     wakeLock = await navigator.wakeLock.request('screen');
                 }
             } catch (err) {
-                console.log('Wake Lock no soportado');
+                console.log('Wake Lock no soportado en este navegador móvil');
             }
         }
 
@@ -404,7 +404,6 @@
             } else {
                 playSound('fail');
                 
-                // Si viene de un tiempo agotado estricto
                 if (res.tiempoAgotado) {
                     actualizarVidas(res.vidas);
                     document.getElementById('txt-combo').innerText = "⏱️ ¡Tiempo agotado!";
@@ -414,24 +413,20 @@
                     return;
                 }
 
-                // Si es un error por clic normal
                 if (btnPresionado) btnPresionado.classList.add('incorrecta-anim');
                 
                 setTimeout(() => {
                     if (btnPresionado) {
                         btnPresionado.id = "";
-                        // Dejamos el botón pintado de rojo para que recuerde que falló
                     }
                     
                     if (res.intento === 1) {
                         intentoActual = 2;
-                        // Habilitamos el resto de las opciones para el 2do intento sin colgarse
                         document.querySelectorAll('.opcion-btn').forEach(b => {
                             if (!b.classList.contains('incorrecta-anim')) b.disabled = false;
                         });
-                        iniciarTimer(); // Reinicia barra de 15s para el intento de recuperación
+                        iniciarTimer(); 
                     } else {
-                        // Era el segundo intento erróneo en la misma pregunta
                         document.getElementById('txt-combo').innerText = "";
                         actualizarVidas(res.vidas);
                         socket.emit('get_pregunta');
@@ -449,7 +444,7 @@
             clearInterval(timerInterval);
             cambiarPantalla('pantalla-fin');
             document.getElementById('fin-titulo').innerText = "¡Derrota Colonial! 🖤";
-            document.getElementById('fin-mensaje').innerText = "Te quedaste sin vidas. ¡Mirá la tabla general en la pantalla gigante!";
+            document.getElementById('fin-mensaje').innerText = "Te quedaste sin vidas. ¡Mirá tu posición en la tabla general!";
             document.getElementById('fin-puesto').innerText = `Puesto Actual: #${res.puesto}`;
             document.getElementById('fin-puntos').innerText = `${puntosLocales} pts`;
         });
@@ -476,6 +471,13 @@
         socket.on('game_resetted', () => {
             cambiarPantalla('pantalla-juego');
             socket.emit('get_pregunta');
+        });
+
+        // RECEPTOR DE RESCATE: Si la sesión del socket expiró, limpia la pantalla de ingreso
+        socket.on('force_relogin', () => {
+            username = "";
+            document.getElementById('username-display').value = "";
+            cambiarPantalla('pantalla-login');
         });
 
         document.addEventListener('visibilitychange', () => {

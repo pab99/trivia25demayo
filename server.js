@@ -10,16 +10,13 @@ const io = new Server(server);
 
 app.use(express.static('public'));
 
-// Cargar preguntas
 const preguntas = JSON.parse(fs.readFileSync(path.join(__dirname, 'preguntas.json'), 'utf8'));
 
-// Estado del juego en memoria
 let jugadores = {}; // { socketId: { username, puntos, vidas, respondidas: [], combo } }
 
 io.on('connection', (socket) => {
     console.log('Usuario conectado:', socket.id);
 
-    // 1. Registro de usuario (Instagram)
     socket.on('join_game', (username) => {
         jugadores[socket.id] = {
             username: username.toLowerCase().replace('@', '').trim(),
@@ -31,7 +28,6 @@ io.on('connection', (socket) => {
         enviarRanking();
     });
 
-    // 2. Enviar pregunta aleatoria
     socket.on('get_pregunta', () => {
         const jugador = jugadores[socket.id];
         if (!jugador) return;
@@ -52,10 +48,7 @@ io.on('connection', (socket) => {
             return;
         }
 
-        // Seleccionar una al azar
         const pregunta = disponibles[Math.floor(Math.random() * disponibles.length)];
-        
-        // Mezclar opciones (1 correcta + 2 incorrectas)
         const opciones = [pregunta.correcta, ...pregunta.incorrectas].sort(() => Math.random() - 0.5);
 
         socket.emit('pregunta_data', {
@@ -65,7 +58,6 @@ io.on('connection', (socket) => {
         });
     });
 
-    // 3. Validar Respuesta y Calcular Puntaje (Logarítmico + Combos)
     socket.on('enviar_respuesta', ({ preguntaId, respuesta, intento, tiempoEmpleado }) => {
         const jugador = jugadores[socket.id];
         if (!jugador) return;
@@ -78,12 +70,9 @@ io.on('connection', (socket) => {
             jugador.combo += 1;
 
             let puntosBase = intento === 1 ? 10 : 5;
-            
-            // Factor Logarítmico de Tiempo
             let bonusTiempo = Math.max(0, Math.round(15 * Math.log(20 / (tiempoEmpleado + 1))));
             let puntosPregunta = puntosBase + bonusTiempo;
 
-            // Multiplicadores de Combo
             let multiplicador = 1;
             if (jugador.combo === 3) multiplicador = 2;
             if (jugador.combo === 6) multiplicador = 4;
@@ -106,7 +95,6 @@ io.on('connection', (socket) => {
         enviarRanking();
     });
 
-    // Resetear juego para revancha
     socket.on('reset_game', () => {
         if (jugadores[socket.id]) {
             jugadores[socket.id].puntos = 0;

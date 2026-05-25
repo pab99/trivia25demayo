@@ -21,12 +21,18 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
 
         .contenedor-movil { 
             padding: 20px; 
             max-width: 480px; 
             margin: auto; 
+            flex: 1;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .tarjeta-patria {
@@ -110,6 +116,7 @@
             box-shadow: 0px 4px 6px rgba(0,0,0,0.08);
             transition: background 0.2s, transform 0.1s;
             cursor: pointer;
+            text-decoration: none;
         }
         .opcion-btn:not([disabled]):hover { background: var(--amarillo-hover); }
         .opcion-btn:active { transform: scale(0.98); }
@@ -149,6 +156,43 @@
             margin: 15px 0;
             border: 2px solid var(--amarillo-sol);
             box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+
+        /* Footer Estilo Tecnoincas */
+        footer {
+            text-align: center;
+            padding: 15px;
+            font-size: 0.8rem;
+            color: #7f8c8d;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            background: transparent;
+            margin-top: auto;
+        }
+
+        .logo-tecnoincas {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: repeating-conic-gradient(from 0deg, var(--amarillo-sol) 0deg 30deg, #d4a314 30deg 60deg);
+            border: 2px solid #555;
+            display: inline-block;
+            position: relative;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .logo-tecnoincas::after {
+            content: '';
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background: #95a5a6;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border: 1px solid #555;
         }
     </style>
 </head>
@@ -193,10 +237,15 @@
             <div style="font-size: 1.1rem; color: #7f8c8d; margin-top: 5px;">Puntaje obtenido final:</div>
             <h3 id="fin-puntos" style="font-size: 2.5rem; color: var(--azul-oscuro); margin: 10px 0;">0 pts</h3>
             
-            <button class="opcion-btn" id="boton-accion-revancha" style="text-align:center; background: var(--azul-oscuro); color: white; border-color: var(--azul-oscuro);" onclick="ejecutarRevanchaGarantizada()">🔄 Volver a Jugar (Revancha)</button>
+            <a href="https://trivia25demayo.onrender.com" class="opcion-btn" style="text-align:center; background: var(--azul-oscuro); color: white; border-color: var(--azul-oscuro); display: block;" onclick="limpiezaPreviaSession()">🔄 Volver a Jugar (Revancha)</a>
         </div>
 
     </div>
+
+    <footer>
+        <div class="logo-tecnoincas"></div>
+        <span>(R) Tecnoincas.com.ar</span>
+    </footer>
 
     <script>
         const socket = io();
@@ -448,54 +497,10 @@
             document.getElementById('fin-puntos').innerText = `${puntosLocales} pts`;
         });
 
-        // 🌟 FUNCIÓN ULTRABLINDA: EJECUCIÓN SÍ O SÍ
-        function ejecutarRevanchaGarantizada() {
-            try {
-                playSound('click');
-                
-                // 1. Limpieza visual agresiva envuelta en try por si falla el DOM
-                intentoActual = 1;
-                puntosLocales = 0;
-                
-                try { document.getElementById('txt-puntos').innerText = "Pts: 0"; } catch(e){}
-                try { document.getElementById('txt-vidas').innerText = "❤️ ❤️ ❤️"; } catch(e){}
-                try { document.getElementById('txt-combo').innerText = ""; } catch(e){}
-                try { document.getElementById('txt-pregunta-num').innerText = "Pregunta 1/10"; } catch(e){}
-                try { document.getElementById('pregunta-titulo').innerText = "Cargando pregunta..."; } catch(e){}
-                try { document.getElementById('contenedor-opciones').innerHTML = ""; } catch(e){}
-
-                // 2. Parche definitivo de re-conexión: le mandamos el 'join_game' otra vez
-                // por si el servidor perdió la sesión del socket por tiempo de espera.
-                if (username.trim().length > 2) {
-                    socket.emit('join_game', username);
-                }
-
-                // 3. Reseteamos el juego en el backend
-                socket.emit('reset_game');
-
-                // 4. Cambiamos de pantalla ya mismo
-                cambiarPantalla('pantalla-juego');
-
-                // 5. Exigimos la pregunta con delay mínimo de 100ms para darle aire al backend de Render
-                setTimeout(() => {
-                    socket.emit('get_pregunta');
-                }, 100);
-
-            } catch (err) {
-                // Si algo explota en el código viejo, forzamos un refresh absoluto de la página
-                window.location.reload();
-            }
+        function limpiezaPreviaSession() {
+            playSound('click');
+            socket.emit('reset_game'); // Deja el aviso flotando para cooperar con el borrado
         }
-
-        socket.on('game_resetted', () => {
-            console.log("Reseteado.");
-        });
-
-        socket.on('force_relogin', () => {
-            username = "";
-            document.getElementById('username-display').value = "";
-            cambiarPantalla('pantalla-login');
-        });
 
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible' && username.trim().length > 2) {

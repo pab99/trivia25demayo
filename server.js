@@ -38,20 +38,19 @@ function guardarRankingEnDisco() {
 io.on('connection', (socket) => {
     console.log('Dispositivo conectado:', socket.id);
 
-    // Mandamos el ranking actual apenas se conecta la TV o el cel
     let listaAlConectar = Object.values(jugadores).sort((a, b) => b.puntos - a.puntos);
     socket.emit('update_ranking', listaAlConectar);
 
-    // SOLUCIÓN DEFINITIVA: Al ingresar o reenganchar, se limpia todo el historial de la ronda
+    // BLINDAJE EXTENDIDO: Siempre que entra un usuario se le vacía el historial de la partida
     socket.on('join_game', (username) => {
         const cleanUsername = username.toLowerCase().replace('@', '').trim();
         
         if (jugadores[cleanUsername]) {
-            console.log(`🔄 Reenganchando y RESETEANDO historial para @${cleanUsername}`);
+            console.log(`🔄 Reenganchando y LIMPIANDO historial completo para @${cleanUsername}`);
             jugadores[cleanUsername].vidas = 3;
-            jugadores[cleanUsername].respondidas = []; // <-- LIMPIEZA CRÚCIAL: Olvida las 10 preguntas viejas
+            jugadores[cleanUsername].respondidas = []; // Asegura que empiece de cero preguntas respondidas
             jugadores[cleanUsername].combo = 0;
-            jugadores[cleanUsername].puntos = 0; // Resetea los puntos para que empiece la revancha de cero
+            jugadores[cleanUsername].puntos = 0; // Se resetea el score para el nuevo intento
             jugadores[cleanUsername].socketId = socket.id;
         } else {
             jugadores[cleanUsername] = {
@@ -74,14 +73,12 @@ io.on('connection', (socket) => {
         const jugador = jugadores[cleanUsername];
         if (!jugador) return;
 
-        // Condición 1: Se quedó sin vidas
         if (jugador.vidas <= 0) {
             const puesto = obtenerPuesto(cleanUsername);
             socket.emit('game_over', { puntos: jugador.puntos, puesto: puesto });
             return;
         }
 
-        // Condición 2: Ya respondió las 10 preguntas de su ronda
         if (jugador.respondidas.length >= 10) {
             const puesto = obtenerPuesto(cleanUsername);
             socket.emit('game_completed', { puntos: jugador.puntos, puesto: puesto });
@@ -161,17 +158,15 @@ io.on('connection', (socket) => {
         enviarRanking();
     });
 
-    // Evento de soporte por si el botón lo llama justo antes de reiniciar la URL
     socket.on('reset_game', () => {
         const cleanUsername = socket.usernameClean;
         if (cleanUsername && jugadores[cleanUsername]) {
-            console.log(`🧹 Reset manual solicitado para @${cleanUsername}`);
+            console.log(`🧹 Reset manual forzado para @${cleanUsername}`);
             jugadores[cleanUsername].vidas = 3;
             jugadores[cleanUsername].respondidas = [];
             jugadores[cleanUsername].combo = 0;
             jugadores[cleanUsername].puntos = 0;
             guardarRankingEnDisco();
-            socket.emit('game_resetted');
             enviarRanking();
         }
     });

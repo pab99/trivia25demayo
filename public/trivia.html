@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Leaderboard - Gran Trivia de Mayo 🇦🇷</title>
     <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         :root {
             --celeste: #74b9ff;
@@ -29,103 +30,144 @@
             flex-direction: column;
             align-items: center;
             justify-content: flex-start;
-            padding: 30px;
+            padding: 20px;
             overflow: hidden;
         }
 
-        /* Encabezado Principal */
+        /* Layout de dos columnas: QR a la izquierda, Ranking a la derecha */
+        .pantalla-layout {
+            display: flex;
+            width: 100%;
+            max-width: 1350px;
+            gap: 30px;
+            align-items: flex-start;
+            margin-top: 10px;
+        }
+
+        /* Columna Izquierda: Bloque del QR */
+        .bloque-qr-acceso {
+            flex: 1;
+            background: var(--blanco);
+            border: 4px solid var(--azul-oscuro);
+            border-radius: 24px;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0px 15px 35px rgba(13, 44, 84, 0.15);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 520px;
+        }
+
+        .bloque-qr-acceso h2 {
+            font-size: 2rem;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            color: var(--azul-oscuro);
+        }
+
+        /* Contenedor del QR con marco prolijo */
+        #contenedor-qr {
+            background: white;
+            padding: 20px;
+            border-radius: 16px;
+            border: 2px solid #ced4da;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+
+        .bloque-qr-acceso p {
+            font-size: 1.2rem;
+            color: #57606f;
+            font-weight: 600;
+            line-height: 1.4;
+        }
+
+        /* Columna Derecha: Contenedor del Leaderboard */
+        .contenedor-ranking {
+            flex: 2;
+            background: var(--blanco);
+            border: 4px solid var(--azul-oscuro);
+            border-radius: 24px;
+            box-shadow: 0px 20px 40px rgba(13, 44, 84, 0.2);
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-height: 520px;
+        }
+
+        /* Encabezado Principal Arriba */
         header {
             text-align: center;
-            margin-bottom: 25px;
+            margin-bottom: 15px;
             width: 100%;
-            max-width: 900px;
         }
 
         header h1 {
-            font-size: 3.2rem;
+            font-size: 3rem;
             text-transform: uppercase;
-            letter-spacing: 2px;
+            letter-spacing: 1px;
             color: var(--azul-oscuro);
             text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
             margin-bottom: 5px;
         }
 
-        header p {
-            font-size: 1.4rem;
-            color: #57606f;
-            font-weight: 600;
-        }
-
         .sol-patrio {
-            font-size: 3.5rem;
+            font-size: 3rem;
             animation: spin 20s linear infinite;
             display: inline-block;
-            margin-bottom: 10px;
         }
 
         @keyframes spin { 100% { transform: rotate(360deg); } }
-
-        /* Contenedor del Leaderboard */
-        .contenedor-ranking {
-            width: 100%;
-            max-width: 950px;
-            background: var(--blanco);
-            border: 4px solid var(--azul-oscuro);
-            border-radius: 24px;
-            box-shadow: 0px 20px 40px rgba(13, 44, 84, 0.2);
-            padding: 30px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
 
         /* Filas del Ranking */
         .fila-ranking {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 14px 25px;
+            padding: 10px 20px;
             background: var(--gris-fondo);
-            border-radius: 14px;
-            border-left: 8px solid #ced4da;
-            transition: all 0.4s ease-in-out;
-            font-size: 1.6rem;
+            border-radius: 12px;
+            border-left: 6px solid #ced4da;
+            font-size: 1.4rem;
             font-weight: bold;
         }
 
         /* Estilos para el PODIO (Top 3) */
         .fila-ranking.puesto-1 {
             background: #fff9db;
-            border-left: 8px solid var(--amarillo-sol);
-            transform: scale(1.02);
-            font-size: 2rem;
-            padding: 18px 30px;
-            box-shadow: 0px 4px 15px rgba(251, 203, 59, 0.25);
+            border-left: 6px solid var(--amarillo-sol);
+            transform: scale(1.01);
+            font-size: 1.7rem;
+            padding: 14px 25px;
+            box-shadow: 0px 4px 12px rgba(251, 203, 59, 0.2);
         }
         .fila-ranking.puesto-2 {
             background: #f1f2f6;
-            border-left: 8px solid #a4b0be;
-            font-size: 1.8rem;
+            border-left: 6px solid #a4b0be;
+            font-size: 1.5rem;
         }
         .fila-ranking.puesto-3 {
             background: #faf0e6;
-            border-left: 8px solid #cd7f32;
-            font-size: 1.7rem;
+            border-left: 6px solid #cd7f32;
+            font-size: 1.45rem;
         }
 
         .izquierda-bloque {
             display: flex;
             align-items: center;
-            gap: 20px;
+            gap: 15px;
         }
 
         .numero-puesto {
-            min-width: 50px;
+            min-width: 40px;
             text-align: center;
         }
 
         .medalla {
-            font-size: 2.2rem;
+            font-size: 1.8rem;
         }
 
         .nombre-usuario {
@@ -135,17 +177,16 @@
         .puntos-usuario {
             color: #27ae60;
             background: rgba(46, 204, 113, 0.1);
-            padding: 4px 16px;
+            padding: 4px 14px;
             border-radius: 30px;
             text-align: right;
-            min-width: 150px;
+            min-width: 130px;
         }
 
-        /* Estado de Espera (Sin jugadores aún) */
         .sin-jugadores {
             text-align: center;
-            padding: 50px;
-            font-size: 1.8rem;
+            padding: 60px;
+            font-size: 1.6rem;
             color: #7f8c8d;
             font-style: italic;
         }
@@ -155,28 +196,49 @@
 
     <header>
         <div class="sol-patrio">☀️</div>
-        <h1>Tabla de Posiciones</h1>
-        <p>Escaneá el QR, ingresá tu usuario y sumá puntos en vivo 🇦🇷</p>
+        <h1>Gran Trivia de Mayo</h1>
     </header>
 
-    <!-- La TV va a renderizar la lista acá adentro -->
-    <div class="contenedor-ranking" id="lista-leaderboard">
-        <div class="sin-jugadores">Esperando que se conecten los primeros patriotas... 🇦🇷</div>
+    <div class="pantalla-layout">
+        
+        <div class="bloque-qr-acceso">
+            <h2>¡Sumate a Jugar!</h2>
+            
+            <div id="contenedor-qr"></div>
+            
+            <p>Escaneá el código QR con tu celular,<br>ingresá tu Instagram y participá en vivo 🇦🇷</p>
+        </div>
+
+        <div class="contenedor-ranking" id="lista-leaderboard">
+            <div class="sin-jugadores">Esperando que se conecten los primeros patriotas... 🇦🇷</div>
+        </div>
+
     </div>
 
     <script>
         const socket = io();
         const contenedorLista = document.getElementById('lista-leaderboard');
 
+        // AUTO-GENERACIÓN DEL QR BASADO EN LA URL ACTUAL DE LA TV
+        // Esto toma dinámicamente el dominio (sea localhost:3000 o tu subdominio de Render)
+        const urlTrivia = window.location.origin; 
+        
+        new QRCode(document.getElementById("contenedor-qr"), {
+            text: urlTrivia,
+            width: 260,
+            height: 260,
+            colorDark : "#0d2c54", // Azul corporativo
+            colorLight : "#ffffff",
+            correctLevel : QRCode.CorrectLevel.H
+        });
+
         // Escucha el ranking en tiempo real enviado por server.js
         socket.on('update_ranking', (listaJugadores) => {
-            // Si no hay jugadores cargados en la base persistente
             if (!listaJugadores || listaJugadores.length === 0) {
                 contenedorLista.innerHTML = '<div class="sin-jugadores">Esperando que se conecten los primeros patriotas... 🇦🇷</div>';
                 return;
             }
 
-            // Limpiamos el contenedor
             contenedorLista.innerHTML = '';
 
             // Tomamos los mejores 10 de la lista general
@@ -186,7 +248,6 @@
                 const numPuesto = indice + 1;
                 const fila = document.createElement('div');
                 
-                // Clases base y específicas de podio para estilos dinámicos
                 let clasePuesto = 'fila-ranking';
                 let indicadorPuesto = `#${numPuesto}`;
 

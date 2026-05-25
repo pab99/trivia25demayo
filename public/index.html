@@ -41,6 +41,22 @@
         .pantalla { display: none; }
         .pantalla.activa { display: block; }
 
+        .contenedor-timer {
+            width: 100%;
+            background-color: #eee;
+            border-radius: 8px;
+            height: 12px;
+            margin-top: 10px;
+            overflow: hidden;
+            border: 1px solid var(--azul-oscuro);
+        }
+        .barra-timer {
+            width: 100%;
+            height: 100%;
+            background-color: var(--celeste);
+            transition: width 0.1s linear;
+        }
+
         .teclado { 
             display: grid; 
             grid-template-columns: repeat(10, 1fr); 
@@ -126,6 +142,7 @@
 <body>
     <div class="contenedor-movil">
         
+        <!-- PANTALLA 1: LOGIN -->
         <div id="pantalla-login" class="pantalla activa tarjeta-patria">
             <div class="emojis-patrios">🇦🇷 🏛️ ☀️ 🇦🇷</div>
             <h2 style="color: var(--azul-oscuro); margin-top: 0;">¡Gran Trivia de Mayo!</h2>
@@ -135,18 +152,25 @@
             <div class="teclado" id="teclado-virtual"></div>
         </div>
 
+        <!-- PANTALLA 2: JUEGO -->
         <div id="pantalla-juego" class="pantalla tarjeta-patria">
             <div class="header-juego">
                 <span id="txt-usuario">@-</span>
                 <span id="txt-puntos">Pts: 0</span>
                 <span id="txt-vidas">❤️ ❤️ ❤️</span>
             </div>
-            <div id="txt-combo" style="color: #e67e22; font-weight: bold; min-height: 20px; font-size: 1.1rem; text-align: center;"></div>
+            
+            <div class="contenedor-timer">
+                <div id="mi-barra" class="barra-timer"></div>
+            </div>
+
+            <div id="txt-combo" style="color: #e67e22; font-weight: bold; min-height: 20px; font-size: 1.1rem; text-align: center; margin-top: 10px;"></div>
             
             <h3 id="pregunta-titulo" style="margin: 20px 0; font-size: 1.3rem; color: var(--azul-oscuro); text-align: left; line-height: 1.4;">Cargando pregunta...</h3>
             <div id="contenedor-opciones"></div>
         </div>
 
+        <!-- PANTALLA 3: FIN DE JUEGO -->
         <div id="pantalla-fin" class="pantalla tarjeta-patria">
             <h2 id="fin-titulo" style="font-size: 1.8rem;">¡Fin de la partida!</h2>
             <p id="fin-mensaje" style="color: #57606f; line-height: 1.4;"></p>
@@ -165,6 +189,22 @@
         let intentoActual = 1;
         let tiempoInicio = 0;
         let puntosLocales = 0;
+        
+        let timerInterval = null;
+        const TIEMPO_LIMITE = 15; 
+        let wakeLock = null;
+
+        // Función para forzar al celular a mantener la pantalla prendida
+        async function activarMantenerPantallaEncendida() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Wake Lock Activo: La pantalla no se apagaría sola.');
+                }
+            } catch (err) {
+                console.log('El celular bloqueó el Wake Lock:', err.message);
+            }
+        }
 
         function playSound(type) {
             try {
@@ -202,7 +242,7 @@
                     gain.gain.setValueAtTime(0.15, ctx.currentTime);
                     osc.start(); osc.stop(ctx.currentTime + 0.3);
                 }
-            } catch(e) { console.log("Audio deshabilitado por el navegador"); }
+            } catch(e) { console.log("Audio no disponible"); }
         }
 
         const keys = [
@@ -243,6 +283,10 @@
             if (username.trim().length > 2) {
                 playSound('success');
                 document.getElementById('txt-usuario').innerText = "@" + username.replace('@','');
+                
+                // Aseguramos pantalla encendida al arrancar
+                activarMantenerPantallaEncendida();
+                
                 socket.emit('join_game', username);
                 cambiarPantalla('pantalla-juego');
                 socket.emit('get_pregunta');
@@ -255,6 +299,39 @@
         function cambiarPantalla(id) {
             document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('activa'));
             document.getElementById(id).classList.add('activa');
+        }
+
+        function iniciarTimer() {
+            clearInterval(timerInterval);
+            const barra = document.getElementById('mi-barra');
+            let tiempoRestante = TIEMPO_LIMITE;
+            barra.style.width = "100%";
+            barra.style.backgroundColor = "var(--celeste)";
+
+            timerInterval = setInterval(() => {
+                tiempoRestante -= 0.1;
+                let porcentaje = (tiempoRestante / TIEMPO_LIMITE) * 100;
+                barra.style.width = porcentaje + "%";
+
+                if (tiempoRestante <= 4) {
+                    barra.style.backgroundColor = "var(--rojo-error)";
+                }
+
+                if (tiempoRestante <= 0) {
+                    clearInterval(timerInterval);
+                    procesarTiempoAgotado();
+                }
+            }, 100);
+        }
+
+        function procesarTiempoAgotado() {
+            document.querySelectorAll('.opcion-btn').forEach(b => b.disabled = true);
+            socket.emit('enviar_respuesta', {
+                preguntaId: preguntaActual.id,
+                respuesta: "__TIEMPO_AGOTADO__",
+                intento: intentoActual,
+                tiempoEmpleado: TIEMPO_LIMITE
+            });
         }
 
         socket.on('pregunta_data', (data) => {
@@ -273,9 +350,12 @@
                 btn.onclick = () => responder(opcion, btn);
                 contenedor.appendChild(btn);
             });
+
+            iniciarTimer();
         });
 
         function responder(opcionSeleccionada, boton) {
+            clearInterval(timerInterval);
             playSound('click');
             const tiempoEmpleado = (Date.now() - tiempoInicio) / 1000;
             document.querySelectorAll('.opcion-btn').forEach(b => b.disabled = true);
@@ -290,6 +370,7 @@
         }
 
         socket.on('resultado_respuesta', (res) => {
+            clearInterval(timerInterval); 
             const btnPresionado = document.getElementById('btn-evaluando');
             
             if (res.correcta) {
@@ -309,7 +390,7 @@
                 setTimeout(() => {
                     if (btnPresionado) btnPresionado.id = "";
                     socket.emit('get_pregunta');
-                }, 1200);
+                }, 1000);
             } else {
                 playSound('fail');
                 if (btnPresionado) btnPresionado.classList.add('incorrecta-anim');
@@ -322,36 +403,42 @@
                     
                     if (res.intento === 1) {
                         intentoActual = 2;
-                        alert('❌ ¡Incorrecto! Te queda un intento para esta pregunta (por 5 pts).');
-                        document.querySelectorAll('.opcion-btn').forEach(b => b.disabled = false);
+                        document.querySelectorAll('.opcion-btn').forEach(b => {
+                            if(b !== btnPresionado) b.disabled = false; 
+                        });
+                        iniciarTimer();
                     } else {
                         document.getElementById('txt-combo').innerText = "";
                         actualizarVidas(res.vidas);
                         socket.emit('get_pregunta');
                     }
-                }, 1200);
+                }, 1000);
             }
         });
 
         function actualizarVidas(vidas) {
             let coras = "";
             for(let i=0; i<3; i++) {
-                coras += i < vidas ? "❤️ " : "🖤 ";
+                coras += i < sizeof(vidas) ? "❤️ " : "🖤 ";
             }
-            document.getElementById('txt-vidas').innerText = coras;
+            // Pequeña corrección interna para renderizar corazones estables
+            let txt = "❤️ ".repeat(Math.max(0, vidas)) + "🖤 ".repeat(Math.max(0, 3 - vidas));
+            document.getElementById('txt-vidas').innerText = txt;
         }
 
         socket.on('game_over', (res) => {
+            clearInterval(timerInterval);
             cambiarPantalla('pantalla-fin');
             document.getElementById('fin-titulo').innerText = "¡Derrota Colonial! 🖤";
-            document.getElementById('fin-mensaje').innerText = "Se agotaron tus vidas. Tu puntaje máximo quedó registrado en la pantalla gigante. ¡Podés revanchar para intentar superarlo!";
+            document.getElementById('fin-mensaje').innerText = "Se agotaron tus vidas o el tiempo límite. Tu puntaje quedó registrado en la pantalla gigante.";
             document.getElementById('fin-puntos').innerText = `${puntosLocales} pts`;
         });
 
         socket.on('game_completed', (res) => {
+            clearInterval(timerInterval);
             cambiarPantalla('pantalla-fin');
             document.getElementById('fin-titulo').innerText = "¡Héroe de la Patria! 🥇🇦🇷";
-            document.getElementById('fin-mensaje').innerText = "¡Excelente! Respondiste todo el banco de preguntas histórico de manera impecable.";
+            document.getElementById('fin-mensaje').innerText = "¡Excelente! Respondiste las preguntas de forma impecable y veloz.";
             document.getElementById('fin-puntos').innerText = `${puntosLocales} pts`;
         });
 
@@ -367,6 +454,13 @@
         socket.on('game_resetted', () => {
             cambiarPantalla('pantalla-juego');
             socket.emit('get_pregunta');
+        });
+
+        // Si el usuario cambia de pestaña y vuelve, re-solicitamos mantener la pantalla despierta
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && username.trim().length > 2) {
+                activarMantenerPantallaEncendida();
+            }
         });
     </script>
 </body>

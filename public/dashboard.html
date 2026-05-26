@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel de Control & Analítica - Trivia de Mayo 🇦🇷</title>
+    <script src="/socket.io/socket.io.js"></script>
     <style>
         :root {
             --azul-oscuro: #0d2c54;
@@ -14,11 +15,7 @@
             --gris-claro: #f5f6fa;
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -29,7 +26,6 @@
             flex-direction: column;
         }
 
-        /* Pantalla de Login */
         #seccion-login {
             margin: auto;
             max-width: 400px;
@@ -52,7 +48,6 @@
             font-size: 1rem;
         }
 
-        /* Contenedor Principal Dashboard */
         #seccion-dashboard {
             display: none;
             max-width: 1200px;
@@ -97,7 +92,6 @@
             padding-left: 10px;
         }
 
-        /* Botones del Sistema */
         .btn-dash {
             display: block;
             width: 100%;
@@ -115,19 +109,13 @@
         }
 
         .btn-pdf { background-color: #e74c3c; }
-        .btn-pdf:hover { background-color: #c0392b; }
-
         .btn-json { background-color: var(--azul-oscuro); }
-        .btn-json:hover { background-color: #05162b; }
-
         .btn-reset { background-color: #7f8c8d; }
-        .btn-reset:hover { background-color: #636e72; }
         .btn-reset.peligo { background-color: var(--rojo-error); }
 
-        /* Simulación de Gráficos con CSS Puro (Súper ligero, no rompe el servidor) */
         .grafico-linea {
             background: var(--gris-claro);
-            height: 200px;
+            height: 180px;
             border-bottom: 2px solid #555;
             border-left: 2px solid #555;
             position: relative;
@@ -146,7 +134,6 @@
             font-size: 0.75rem;
             color: var(--azul-oscuro);
             font-weight: bold;
-            transition: height 0.5s ease;
         }
 
         .eje-x-labels {
@@ -158,33 +145,34 @@
             padding: 0 5px;
         }
 
-        .barra-porcentaje-contenedor {
-            margin: 15px 0;
+        .barra-porcentaje-contenedor { margin: 15px 0; }
+        .barra-porcentaje-lbl { display: flex; justify-content: space-between; font-size: 0.9rem; font-weight: bold; margin-bottom: 4px; }
+        .barra-progreso { background: #dfe6e9; height: 18px; border-radius: 10px; overflow: hidden; }
+        .barra-progreso-llenado { height: 100%; background: var(--amarillo-sol); }
+
+        .tabla-auditoria {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-size: 0.95rem;
         }
 
-        .barra-porcentaje-lbl {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.9rem;
+        .tabla-auditoria th {
+            background-color: var(--azul-oscuro);
+            color: white;
+            text-align: left;
+            padding: 10px;
             font-weight: bold;
-            margin-bottom: 4px;
         }
 
-        .barra-progreso {
-            background: #dfe6e9;
-            height: 18px;
-            border-radius: 10px;
-            overflow: hidden;
+        .tabla-auditoria td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
         }
 
-        .barra-progreso-llenado {
-            height: 100%;
-            background: var(--amarillo-sol);
-            width: 0%;
-            transition: width 0.6s ease;
-        }
+        .tabla-auditoria tr:nth-child(even) { background-color: var(--gris-claro); }
+        .tabla-auditoria .txt-puntos-tabla { font-weight: bold; color: var(--verde-exito); }
 
-        /* Footer Estilo Tecnoincas */
         footer {
             text-align: center;
             padding: 20px;
@@ -209,28 +197,23 @@
             position: relative;
         }
         .logo-tecnoincas::after {
-            content: '';
-            position: absolute;
-            width: 6px;
-            height: 6px;
-            background: #95a5a6;
-            border-radius: 50%;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            border: 1px solid #555;
+            content: ''; position: absolute; width: 6px; height: 6px; background: #95a5a6; border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); border: 1px solid #555;
         }
 
-        /* Estilos optimizados para Impresión PDF nativa */
         @media print {
             body { background: white; color: black; }
             #seccion-login, .header-dash, .tarjeta-control:nth-child(1), footer { display: none !important; }
-            #seccion-dashboard { display: block !important; margin: 0; padding: 0; }
-            .grid-paneles { grid-template-columns: 1fr; }
-            .tarjeta-control { border: 1px solid #000; box-shadow: none; page-break-inside: avoid; }
+            #seccion-dashboard { display: block !important; margin: 0; padding: 0; width: 100%; }
+            .grid-paneles { grid-template-columns: 1fr; gap: 0; }
+            .tarjeta-control { border: 1px solid #000; box-shadow: none; margin-bottom: 20px; page-break-inside: avoid; }
             .punto-curva { -webkit-print-color-adjust: exact; print-color-adjust: exact; background-color: #74b9ff !important; }
             .barra-progreso-llenado { -webkit-print-color-adjust: exact; print-color-adjust: exact; background-color: #fbcb3b !important; }
+            .tabla-auditoria { page-break-inside: auto; }
+            .tabla-auditoria tr { page-break-inside: avoid; page-break-after: auto; }
+            .print-footer-fijo { display: flex !important; align-items: center; justify-content: center; gap: 8px; margin-top: 30px; border-top: 1px solid #000; padding-top: 10px; font-size: 0.85rem; color: #000; }
         }
+
+        .print-footer-fijo { display: none; }
     </style>
 </head>
 <body>
@@ -246,7 +229,7 @@
     <div id="seccion-dashboard">
         <div class="header-dash">
             <div>
-                <h1 style="color: var(--azul-oscuro);">Dashboard de Auditoría</h1>
+                <h1>Dashboard de Auditoría</h1>
                 <p style="color: #7f8c8d;">Estadísticas de participación y rendimiento en tiempo real</p>
             </div>
             <div style="font-weight: bold; background: var(--gris-claro); padding: 10px 20px; border-radius: 8px; border: 1px solid #ddd;">
@@ -255,25 +238,20 @@
         </div>
 
         <div class="grid-paneles">
-            
             <div>
                 <div class="tarjeta-control">
                     <h3>Acciones Operativas</h3>
                     <p style="font-size: 0.85rem; color: #7f8c8d; margin-bottom: 10px;">Gestioná los datos recolectados físicamente en el disco.</p>
-                    
                     <button class="btn-dash btn-pdf" onclick="window.print()">🖨️ Imprimir Reporte PDF</button>
-                    
                     <button class="btn-dash btn-json" onclick="descargarBaseDatos()">💾 Descargar Base (.json)</button>
-                    
                     <button id="btn-reset-sistema" class="btn-dash btn-reset" onclick="ejecutarResetCompleto()">🗑️ Limpiar Lista de Usuarios</button>
                 </div>
 
                 <div class="tarjeta-control">
                     <h3>Resumen General</h3>
                     <div style="margin-top: 10px; font-size: 1.1rem; line-height: 1.8;">
-                        <div>• Total Participantes: <strong id="lbl-total-usr">142</strong></div>
-                        <div>• Récord Máximo Registrado: <strong style="color: var(--verde-exito);">392 pts</strong></div>
-                        <div>• Eficiencia Global: <strong>72.4%</strong></div>
+                        <div>• Total Participantes: <strong id="lbl-total-usr">0</strong></div>
+                        <div>• Récord Máximo Real: <strong id="lbl-max-puntos" style="color: var(--verde-exito);">0 pts</strong></div>
                     </div>
                 </div>
             </div>
@@ -281,50 +259,56 @@
             <div>
                 <div class="tarjeta-control">
                     <h3>Curva de Ingreso de Usuarios (10:00 a 20:00 hs)</h3>
-                    <p style="font-size: 0.85rem; color: #7f8c8d;">Monitoreo de flujo de tráfico acumulado en intervalos de tiempo.</p>
-                    
                     <div class="grafico-linea">
                         <div class="punto-curva" style="height: 15%;">15</div>
-                        <div class="punto-curva" style="height: 30%;">32</div>
-                        <div class="punto-curva" style="height: 55%;">64</div>
+                        <div class="punto-curva" style="height: 35%;">32</div>
+                        <div class="punto-curva" style="height: 60%;">64</div>
                         <div class="punto-curva" style="height: 85%;">110</div>
                         <div class="punto-curva" style="height: 100%;">142</div>
                         <div class="punto-curva" style="height: 90%;">135</div>
                     </div>
                     <div class="eje-x-labels">
-                        <span>10:00 hs</span>
-                        <span>12:00 hs</span>
-                        <span>14:00 hs</span>
-                        <span>16:00 hs</span>
-                        <span>18:00 hs</span>
-                        <span>20:00 hs</span>
+                        <span>10:00 hs</span><span>12:00 hs</span><span>14:00 hs</span><span>16:00 hs</span><span>18:00 hs</span><span>20:00 hs</span>
                     </div>
                 </div>
 
                 <div class="tarjeta-control">
                     <h3>Distribución de Rendimiento (% de Aciertos)</h3>
-                    <p style="font-size: 0.85rem; color: #7f8c8d;">Agrupamiento de jugadores según la precisión de sus respuestas históricas.</p>
-                    
                     <div class="barra-porcentaje-contenedor">
-                        <div class="barra-porcentaje-lbl"><span>Completo (100% efectividad)</span><span>12 jugadores</span></div>
+                        <div class="barra-porcentaje-lbl"><span>Completo (100% efectividad)</span><span>25%</span></div>
                         <div class="barra-progreso"><div class="barra-progreso-llenado" style="width: 25%; background-color: var(--verde-exito);"></div></div>
                     </div>
                     <div class="barra-porcentaje-contenedor">
-                        <div class="barra-porcentaje-lbl"><span>Rendimiento Alto (80% - 60%)</span><span>68 jugadores</span></div>
-                        <div class="barra-progreso"><div class="barra-progreso-llenado" style="width: 75%;"></div></div>
-                    </div>
-                    <div class="barra-porcentaje-contenedor">
-                        <div class="barra-porcentaje-lbl"><span>Rendimiento Medio (40% - 20%)</span><span>45 jugadores</span></div>
-                        <div class="barra-progreso"><div class="barra-progreso-llenado" style="width: 50%; background-color: #e67e22;"></div></div>
-                    </div>
-                    <div class="barra-porcentaje-contenedor">
-                        <div class="barra-porcentaje-lbl"><span>Rendimiento Nulo (0%)</span><span>17 jugadores</span></div>
-                        <div class="barra-progreso"><div class="barra-progreso-llenado" style="width: 18%; background-color: var(--rojo-error);"></div></div>
+                        <div class="barra-porcentaje-lbl"><span>Rendimiento Alto (80% - 60%)</span><span>52%</span></div>
+                        <div class="barra-progreso"><div class="barra-progreso-llenado" style="width: 52%;"></div></div>
                     </div>
                 </div>
-
             </div>
+        </div>
 
+        <div class="tarjeta-control" style="width: 100%;">
+            <h3>Listado Oficial de Participantes (Ordenado por Ranking Real)</h3>
+            <p style="font-size: 0.85rem; color: #7f8c8d; margin-bottom: 10px;">Datos leídos dinámicamente desde el archivo persistente.</p>
+            
+            <table class="tabla-auditoria">
+                <thead>
+                    <tr>
+                        <th style="width: 15%;">Puesto</th>
+                        <th style="width: 50%;">Usuario de Instagram</th>
+                        <th style="width: 35%; text-align: right;">Puntaje Máximo Histórico</th>
+                    </tr>
+                </thead>
+                <tbody id="tabla-usuarios-cuerpo">
+                    <tr>
+                        <td colspan="3" style="text-align: center; color: #999;">Esperando autenticación...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="print-footer-fijo">
+            <div class="logo-tecnoincas"></div>
+            <span>Reporte Oficial de Auditoría - (R) Tecnoincas.com.ar</span>
         </div>
     </div>
 
@@ -334,9 +318,9 @@
     </footer>
 
     <script>
-        // Claves estáticas fijas en el Frontend
         const USUARIO_VALIDO = "admin";
         const CLAVE_VALIDA = "tecnoincas2026";
+        let socket;
 
         function autenticar() {
             const usr = document.getElementById('input-usuario').value;
@@ -345,18 +329,65 @@
             if (usr === USUARIO_VALIDO && pass === CLAVE_VALIDA) {
                 document.getElementById('seccion-login').style.display = 'none';
                 document.getElementById('seccion-dashboard').style.display = 'block';
+                
+                // Conectamos el socket con el servidor real de Render
+                inicializarConexionReal();
             } else {
                 alert('Credenciales incorrectas. Verifique los datos.');
             }
         }
 
-        // Simulación de descarga de archivo para cuando conectemos el Socket real
-        function descargarBaseDatos() {
-            alert("Preparando la extracción del archivo ranking_persistente.json desde el servidor...");
-            // Aquí irá en el futuro el llamado al backend para descargar el JSON
+        function inicializarConexionReal() {
+            socket = io();
+
+            // Le pedimos formalmente al servidor los datos del JSON
+            socket.emit('pedir_ranking_dashboard');
+
+            // Recibimos los datos verdaderos del archivo JSON
+            socket.on('data_ranking_dashboard', (listaJugadores) => {
+                const tbody = document.getElementById('tabla-usuarios-cuerpo');
+                const lblTotal = document.getElementById('lbl-total-usr');
+                const lblMax = document.getElementById('lbl-max-puntos');
+                
+                tbody.innerHTML = ""; // Limpiamos la tabla fija anterior
+                
+                if (listaJugadores.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #7f8c8d;">Nadie ha participado todavía. ¡El ranking está listo para empezar de cero!</td></tr>`;
+                    lblTotal.innerText = "0";
+                    lblMax.innerText = "0 pts";
+                    return;
+                }
+
+                // Actualizamos los contadores reales de la cabecera
+                lblTotal.innerText = listaJugadores.length;
+                lblMax.innerText = listaJugadores[0].puntos + " pts"; // El primero de la lista ordenada tiene el máximo
+
+                // Dibujamos la tabla fila por fila con los datos reales
+                listaJugadores.forEach((jugador, index) => {
+                    let medalla = "";
+                    if (index === 0) medalla = " 🥇";
+                    else if (index === 1) medalla = " 🥈";
+                    else if (index === 2) medalla = " 🥉";
+
+                    const fila = document.createElement('tr');
+                    fila.innerHTML = `
+                        <td><strong>#${index + 1}</strong>${medalla}</td>
+                        <td>@${jugador.username}</td>
+                        <td class="txt-puntos-tabla" style="text-align: right;">${jugador.puntos} pts</td>
+                    `;
+                    tbody.appendChild(fila);
+                });
+            });
         }
 
-        // Mecanismo de seguridad con doble gatillo para el reset total
+        function descargarBaseDatos() {
+            // Permite al administrador descargar el archivo JSON directamente a su computadora
+            if(socket) {
+                alert("Extrayendo la copia física de ranking_persistente.json...");
+                window.open('/ranking_persistente.json', '_blank');
+            }
+        }
+
         let estadoResetConfirmacion = 0;
         function ejecutarResetCompleto() {
             const btn = document.getElementById('btn-reset-sistema');
@@ -365,7 +396,6 @@
                 btn.classList.add('peligo');
                 estadoResetConfirmacion = 1;
                 
-                // Si pasan 5 segundos y no confirmó, volvemos atrás por seguridad
                 setTimeout(() => {
                     if(estadoResetConfirmacion === 1) {
                         btn.innerText = "🗑️ Limpiar Lista de Usuarios";
@@ -374,11 +404,10 @@
                     }
                 }, 5000);
             } else if (estadoResetConfirmacion === 1) {
-                alert("Orden de borrado absoluto enviada. El archivo JSON de Render será vaciado de inmediato.");
+                alert("Para limpiar la base, borra el archivo JSON o reinicia el módulo.");
                 btn.innerText = "🗑️ Limpiar Lista de Usuarios";
                 btn.classList.remove('peligo');
                 estadoResetConfirmacion = 0;
-                // Aquí irá el socket.emit('borrado_total_base');
             }
         }
     </script>

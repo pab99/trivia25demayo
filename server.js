@@ -39,14 +39,13 @@ try {
         console.log('ℹ️ No existe archivo de ranking previo. Se creará uno nuevo al jugar.');
     }
 } catch (err) {
-    console.log('⚠️ Error crítico al inicializar la base de datos persistente:', err.message);
+    console.log('⚠️ Error crítico al inicializar la base de datos de persistencia:', err.message);
     jugadores = {};
 }
 
 // Función de guardado con seguro contra borrados accidentales
 function guardarRankingEnDisco() {
     try {
-        // SEGURO EN CASO DE CAÍDA: Si la memoria quedó vacía por error pero sabemos que había datos en el JSON, evitamos destruirlos
         if (Object.keys(jugadores).length === 0 && fs.existsSync(RANKING_PATH)) {
             const chequeoFisico = fs.readFileSync(RANKING_PATH, 'utf8').trim();
             if (chequeoFisico.length > 5) {
@@ -63,9 +62,15 @@ function guardarRankingEnDisco() {
 io.on('connection', (socket) => {
     console.log('Dispositivo conectado:', socket.id);
 
-    // Enviar ranking inmediatamente al conectar (fundamental para que la TV recupere el estado si se reinicia)
+    // Enviar ranking inmediatamente al conectar (fundamental para la TV)
     let listaAlConectar = Object.values(jugadores).sort((a, b) => b.puntos - a.puntos);
     socket.emit('update_ranking', listaAlConectar);
+
+    // 📈 EVENTO PARA EL DASHBOARD: Escupe la data real del JSON al panel de control
+    socket.on('pedir_ranking_dashboard', () => {
+        let listaCompleta = Object.values(jugadores).sort((a, b) => b.puntos - a.puntos);
+        socket.emit('data_ranking_dashboard', listaCompleta);
+    });
 
     socket.on('join_game', (username) => {
         const cleanUsername = username.toLowerCase().replace('@', '').trim();
@@ -92,6 +97,9 @@ io.on('connection', (socket) => {
         socket.usernameClean = cleanUsername;
         guardarRankingEnDisco(); 
         enviarRanking();
+        
+        // Avisar también al dashboard en tiempo real si está abierto
+        io.emit('data_ranking_dashboard', Object.values(jugadores).sort((a, b) => b.puntos - a.puntos));
     });
 
     socket.on('get_pregunta', () => {
@@ -152,6 +160,7 @@ io.on('connection', (socket) => {
             });
             guardarRankingEnDisco();
             enviarRanking();
+            io.emit('data_ranking_dashboard', Object.values(jugadores).sort((a, b) => b.puntos - a.puntos));
             return;
         }
 
@@ -191,6 +200,7 @@ io.on('connection', (socket) => {
         }
         guardarRankingEnDisco(); 
         enviarRanking();
+        io.emit('data_ranking_dashboard', Object.values(jugadores).sort((a, b) => b.puntos - a.puntos));
     });
 
     socket.on('reset_game', () => {
@@ -203,6 +213,7 @@ io.on('connection', (socket) => {
             jugadores[cleanUsername].puntosRondaActual = 0;
             guardarRankingEnDisco();
             enviarRanking();
+            io.emit('data_ranking_dashboard', Object.values(jugadores).sort((a, b) => b.puntos - a.puntos));
         }
     });
 
@@ -234,5 +245,5 @@ server.listen(PORT, () => {
         }).on('error', (err) => {
             console.log('⚠️ Error en Auto-Ping:', err.message);
         });
-    }, 300000); // 5 minutos (300.000 ms)
+    }, 300000); 
 });

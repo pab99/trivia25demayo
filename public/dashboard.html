@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Control & Analítica - Trivia de Mayo 🇦🇷</title>
+    <style>
+        :root {
+            --azul-oscuro: #0d2c54;
+            --celeste: #74b9ff;
+            --amarillo-sol: #fbcb3b;
+            --rojo-error: #ff7675;
+            --verde-exito: #2ecc71;
+            --gris-claro: #f5f6fa;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f8f9fa;
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Pantalla de Login */
+        #seccion-login {
+            margin: auto;
+            max-width: 400px;
+            width: 100%;
+            padding: 20px;
+            background: white;
+            border: 3px solid var(--azul-oscuro);
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            text-align: center;
+            margin-top: 10vh;
+        }
+
+        .input-login {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 2px solid #ced4da;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        /* Contenedor Principal Dashboard */
+        #seccion-dashboard {
+            display: none;
+            max-width: 1200px;
+            width: 100%;
+            margin: 20px auto;
+            padding: 20px;
+            flex: 1;
+        }
+
+        .header-dash {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 4px solid var(--azul-oscuro);
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+        }
+
+        .grid-paneles {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 25px;
+        }
+
+        @media (max-width: 900px) {
+            .grid-paneles { grid-template-columns: 1fr; }
+        }
+
+        .tarjeta-control {
+            background: white;
+            border: 2px solid var(--azul-oscuro);
+            border-radius: 14px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 25px;
+        }
+
+        .tarjeta-control h3 {
+            color: var(--azul-oscuro);
+            margin-bottom: 15px;
+            border-left: 5px solid var(--celeste);
+            padding-left: 10px;
+        }
+
+        /* Botones del Sistema */
+        .btn-dash {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            margin: 12px 0;
+            font-size: 1rem;
+            font-weight: bold;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+            text-decoration: none;
+        }
+
+        .btn-pdf { background-color: #e74c3c; }
+        .btn-pdf:hover { background-color: #c0392b; }
+
+        .btn-json { background-color: var(--azul-oscuro); }
+        .btn-json:hover { background-color: #05162b; }
+
+        .btn-reset { background-color: #7f8c8d; }
+        .btn-reset:hover { background-color: #636e72; }
+        .btn-reset.peligo { background-color: var(--rojo-error); }
+
+        /* Simulación de Gráficos con CSS Puro (Súper ligero, no rompe el servidor) */
+        .grafico-linea {
+            background: var(--gris-claro);
+            height: 200px;
+            border-bottom: 2px solid #555;
+            border-left: 2px solid #555;
+            position: relative;
+            margin-top: 20px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            padding: 0 10px;
+        }
+
+        .punto-curva {
+            width: 12px;
+            background: var(--celeste);
+            border-radius: 4px 4px 0 0;
+            text-align: center;
+            font-size: 0.75rem;
+            color: var(--azul-oscuro);
+            font-weight: bold;
+            transition: height 0.5s ease;
+        }
+
+        .eje-x-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+            font-size: 0.8rem;
+            color: #7f8c8d;
+            padding: 0 5px;
+        }
+
+        .barra-porcentaje-contenedor {
+            margin: 15px 0;
+        }
+
+        .barra-porcentaje-lbl {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .barra-progreso {
+            background: #dfe6e9;
+            height: 18px;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .barra-progreso-llenado {
+            height: 100%;
+            background: var(--amarillo-sol);
+            width: 0%;
+            transition: width 0.6s ease;
+        }
+
+        /* Footer Estilo Tecnoincas */
+        footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 0.9rem;
+            color: #7f8c8d;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: white;
+            border-top: 1px solid #ddd;
+            margin-top: auto;
+        }
+
+        .logo-tecnoincas {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: repeating-conic-gradient(from 0deg, var(--amarillo-sol) 0deg 30deg, #d4a314 30deg 60deg);
+            border: 2px solid #555;
+            display: inline-block;
+            position: relative;
+        }
+        .logo-tecnoincas::after {
+            content: '';
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background: #95a5a6;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border: 1px solid #555;
+        }
+
+        /* Estilos optimizados para Impresión PDF nativa */
+        @media print {
+            body { background: white; color: black; }
+            #seccion-login, .header-dash, .tarjeta-control:nth-child(1), footer { display: none !important; }
+            #seccion-dashboard { display: block !important; margin: 0; padding: 0; }
+            .grid-paneles { grid-template-columns: 1fr; }
+            .tarjeta-control { border: 1px solid #000; box-shadow: none; page-break-inside: avoid; }
+            .punto-curva { -webkit-print-color-adjust: exact; print-color-adjust: exact; background-color: #74b9ff !important; }
+            .barra-progreso-llenado { -webkit-print-color-adjust: exact; print-color-adjust: exact; background-color: #fbcb3b !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="seccion-login">
+        <h2 style="color: var(--azul-oscuro); margin-bottom: 10px;">Acceso Consultoría</h2>
+        <p style="color: #666; font-size: 0.9rem; margin-bottom: 20px;">Ingresá las credenciales del evento</p>
+        <input type="text" id="input-usuario" class="input-login" placeholder="Usuario Corporativo">
+        <input type="password" id="input-clave" class="input-login" placeholder="Contraseña">
+        <button class="btn-dash btn-json" onclick="autenticar()" style="margin-top: 15px;">INGRESAR AL PANEL</button>
+    </div>
+
+    <div id="seccion-dashboard">
+        <div class="header-dash">
+            <div>
+                <h1 style="color: var(--azul-oscuro);">Dashboard de Auditoría</h1>
+                <p style="color: #7f8c8d;">Estadísticas de participación y rendimiento en tiempo real</p>
+            </div>
+            <div style="font-weight: bold; background: var(--gris-claro); padding: 10px 20px; border-radius: 8px; border: 1px solid #ddd;">
+                ⚙️ Conexión: <span style="color: var(--verde-exito);">Estable (JSON)</span>
+            </div>
+        </div>
+
+        <div class="grid-paneles">
+            
+            <div>
+                <div class="tarjeta-control">
+                    <h3>Acciones Operativas</h3>
+                    <p style="font-size: 0.85rem; color: #7f8c8d; margin-bottom: 10px;">Gestioná los datos recolectados físicamente en el disco.</p>
+                    
+                    <button class="btn-dash btn-pdf" onclick="window.print()">🖨️ Imprimir Reporte PDF</button>
+                    
+                    <button class="btn-dash btn-json" onclick="descargarBaseDatos()">💾 Descargar Base (.json)</button>
+                    
+                    <button id="btn-reset-sistema" class="btn-dash btn-reset" onclick="ejecutarResetCompleto()">🗑️ Limpiar Lista de Usuarios</button>
+                </div>
+
+                <div class="tarjeta-control">
+                    <h3>Resumen General</h3>
+                    <div style="margin-top: 10px; font-size: 1.1rem; line-height: 1.8;">
+                        <div>• Total Participantes: <strong id="lbl-total-usr">142</strong></div>
+                        <div>• Récord Máximo Registrado: <strong style="color: var(--verde-exito);">392 pts</strong></div>
+                        <div>• Eficiencia Global: <strong>72.4%</strong></div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="tarjeta-control">
+                    <h3>Curva de Ingreso de Usuarios (10:00 a 20:00 hs)</h3>
+                    <p style="font-size: 0.85rem; color: #7f8c8d;">Monitoreo de flujo de tráfico acumulado en intervalos de tiempo.</p>
+                    
+                    <div class="grafico-linea">
+                        <div class="punto-curva" style="height: 15%;">15</div>
+                        <div class="punto-curva" style="height: 30%;">32</div>
+                        <div class="punto-curva" style="height: 55%;">64</div>
+                        <div class="punto-curva" style="height: 85%;">110</div>
+                        <div class="punto-curva" style="height: 100%;">142</div>
+                        <div class="punto-curva" style="height: 90%;">135</div>
+                    </div>
+                    <div class="eje-x-labels">
+                        <span>10:00 hs</span>
+                        <span>12:00 hs</span>
+                        <span>14:00 hs</span>
+                        <span>16:00 hs</span>
+                        <span>18:00 hs</span>
+                        <span>20:00 hs</span>
+                    </div>
+                </div>
+
+                <div class="tarjeta-control">
+                    <h3>Distribución de Rendimiento (% de Aciertos)</h3>
+                    <p style="font-size: 0.85rem; color: #7f8c8d;">Agrupamiento de jugadores según la precisión de sus respuestas históricas.</p>
+                    
+                    <div class="barra-porcentaje-contenedor">
+                        <div class="barra-porcentaje-lbl"><span>Completo (100% efectividad)</span><span>12 jugadores</span></div>
+                        <div class="barra-progreso"><div class="barra-progreso-llenado" style="width: 25%; background-color: var(--verde-exito);"></div></div>
+                    </div>
+                    <div class="barra-porcentaje-contenedor">
+                        <div class="barra-porcentaje-lbl"><span>Rendimiento Alto (80% - 60%)</span><span>68 jugadores</span></div>
+                        <div class="barra-progreso"><div class="barra-progreso-llenado" style="width: 75%;"></div></div>
+                    </div>
+                    <div class="barra-porcentaje-contenedor">
+                        <div class="barra-porcentaje-lbl"><span>Rendimiento Medio (40% - 20%)</span><span>45 jugadores</span></div>
+                        <div class="barra-progreso"><div class="barra-progreso-llenado" style="width: 50%; background-color: #e67e22;"></div></div>
+                    </div>
+                    <div class="barra-porcentaje-contenedor">
+                        <div class="barra-porcentaje-lbl"><span>Rendimiento Nulo (0%)</span><span>17 jugadores</span></div>
+                        <div class="barra-progreso"><div class="barra-progreso-llenado" style="width: 18%; background-color: var(--rojo-error);"></div></div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+    <footer>
+        <div class="logo-tecnoincas"></div>
+        <span>(R) Tecnoincas.com.ar</span>
+    </footer>
+
+    <script>
+        // Claves estáticas fijas en el Frontend
+        const USUARIO_VALIDO = "admin";
+        const CLAVE_VALIDA = "tecnoincas2026";
+
+        function autenticar() {
+            const usr = document.getElementById('input-usuario').value;
+            const pass = document.getElementById('input-clave').value;
+
+            if (usr === USUARIO_VALIDO && pass === CLAVE_VALIDA) {
+                document.getElementById('seccion-login').style.display = 'none';
+                document.getElementById('seccion-dashboard').style.display = 'block';
+            } else {
+                alert('Credenciales incorrectas. Verifique los datos.');
+            }
+        }
+
+        // Simulación de descarga de archivo para cuando conectemos el Socket real
+        function descargarBaseDatos() {
+            alert("Preparando la extracción del archivo ranking_persistente.json desde el servidor...");
+            // Aquí irá en el futuro el llamado al backend para descargar el JSON
+        }
+
+        // Mecanismo de seguridad con doble gatillo para el reset total
+        let estadoResetConfirmacion = 0;
+        function ejecutarResetCompleto() {
+            const btn = document.getElementById('btn-reset-sistema');
+            if (estadoResetConfirmacion === 0) {
+                btn.innerText = "⚠️ ¿ESTÁS SEGURO? CLIC DE NUEVO";
+                btn.classList.add('peligo');
+                estadoResetConfirmacion = 1;
+                
+                // Si pasan 5 segundos y no confirmó, volvemos atrás por seguridad
+                setTimeout(() => {
+                    if(estadoResetConfirmacion === 1) {
+                        btn.innerText = "🗑️ Limpiar Lista de Usuarios";
+                        btn.classList.remove('peligo');
+                        estadoResetConfirmacion = 0;
+                    }
+                }, 5000);
+            } else if (estadoResetConfirmacion === 1) {
+                alert("Orden de borrado absoluto enviada. El archivo JSON de Render será vaciado de inmediato.");
+                btn.innerText = "🗑️ Limpiar Lista de Usuarios";
+                btn.classList.remove('peligo');
+                estadoResetConfirmacion = 0;
+                // Aquí irá el socket.emit('borrado_total_base');
+            }
+        }
+    </script>
+</body>
+</html>

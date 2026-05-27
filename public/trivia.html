@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pantalla Gigante - Trivia de Mayo 🇦🇷</title>
+    <script src="/socket.io/socket.io.js"></script>
+    
     <style>
         :root {
             --azul-patrio: #0d2c54;
@@ -94,7 +96,7 @@
             letter-spacing: 1px;
         }
 
-        /* ESTILOS DE LA TABLA DE POSICIONES */
+        /* TABLA DE POSICIONES ORIGINAL */
         .tabla-leaderboard {
             width: 100%;
             border-collapse: collapse;
@@ -108,11 +110,11 @@
             padding: 18px 15px;
             color: #2c3e50;
         }
-        .puesto-top { font-weight: bold; color: var(--azul-patrio); width: 15%; }
-        .usuario-name { font-weight: 600; width: 60%; }
+        .puesto-top { font-weight: bold; color: var(--azul-patrio); width: 10%; }
+        .usuario-name { font-weight: 600; width: 65%; }
         .puntos-total { text-align: right; font-weight: bold; color: #2ecc71; width: 25%; }
 
-        /* ESTILOS SECCIÓN SABÍAS QUE */
+        /* SECCIÓN SABÍAS QUE */
         .contenido-curioso {
             display: flex;
             flex-direction: column;
@@ -173,9 +175,9 @@
                 <table class="tabla-leaderboard">
                     <tbody id="lista-posiciones">
                         <tr>
-                            <td class="puesto-top">-</td>
-                            <td class="usuario-name">Cargando posiciones persistentes...</td>
-                            <td class="puntos-total">...</td>
+                            <td class="puesto-top">#1</td>
+                            <td class="usuario-name">@esperando_jugadores</td>
+                            <td class="puntos-total">0 pts</td>
                         </tr>
                     </tbody>
                 </table>
@@ -184,17 +186,34 @@
             <div id="contenedor-sabiasque" class="modulo-pantalla" style="display: none;">
                 <h2>💡 ¿Sabías que...?</h2>
                 <div class="contenido-curioso">
-                    <div id="display-pregunta" class="texto-pregunta">Preparando contenido...</div>
-                    <div id="display-explicacion" class="texto-explicacion">Buscando datos históricos del Cabildo...</div>
+                    <div id="display-pregunta" class="texto-pregunta">Cargando dato histórico...</div>
+                    <div id="display-explicacion" class="texto-explicacion">Por favor espere.</div>
                 </div>
             </div>
 
         </div>
     </div>
 
-    <script src="/socket.io/socket.io.js"></script>
-
     <script>
+        // LÓGICA ORIGINAL DE CONEXIÓN CON TU BACKEND
+        const socket = io();
+        
+        socket.on('actualizar_ranking', (usuarios) => {
+            console.log("Ranking recibido desde el backend:", usuarios);
+            const tabla = document.getElementById('lista-posiciones');
+            if (!tabla) return;
+            
+            // Mapeo directo clásico que usaba tu servidor funcional
+            tabla.innerHTML = usuarios.map((user, index) => `
+                <tr>
+                    <td class="puesto-top">#${index + 1}</td>
+                    <td class="usuario-name">@${user.username}</td>
+                    <td class="puntos-total">${user.puntos} pts</td>
+                </tr>
+            `).join('');
+        });
+
+        // DATOS CURIOSOS
         const datosCuriosos = [
             {
                 pregunta: "¿Quién fue el miembro más joven de la Primera Junta?",
@@ -218,23 +237,10 @@
             }
         ];
 
+        // LÓGICA DE ROTACIÓN CADA 10 SEGUNDOS (Sin alterar variables de red)
         let indiceCurioso = 0;
         let mostrandoRanking = true;
 
-        function renderizarTabla(usuarios) {
-            const tabla = document.getElementById('lista-posiciones');
-            if (!tabla || !usuarios || usuarios.length === 0) return;
-            
-            tabla.innerHTML = usuarios.map((user, index) => `
-                <tr>
-                    <td class="puesto-top">#${index + 1}</td>
-                    <td class="usuario-name">@${user.username || user.id || 'anonimo'}</td>
-                    <td class="puntos-total">${user.puntos || 0} pts</td>
-                </tr>
-            `).join('');
-        }
-
-        // CONTROLADOR DE ROTACIÓN PERMANENTE CADA 10 SEGUNDOS (Funciona de inmediato)
         function ejecutarRotacion() {
             const divRanking = document.getElementById('contenedor-ranking');
             const divSabiasQue = document.getElementById('contenedor-sabiasque');
@@ -258,34 +264,8 @@
             }
         }
 
-        // Iniciamos el intervalo de inmediato de forma independiente
+        // Intervalo cíclico nativo
         setInterval(ejecutarRotacion, 10000);
-
-        // CONEXIÓN DE WEBSOCKETS AISLADA EN UN BLOQUE SEGURO
-        document.addEventListener("DOMContentLoaded", () => {
-            try {
-                if (typeof io !== 'undefined') {
-                    const socket = io();
-                    
-                    socket.on('connect', () => {
-                        console.log("Conectado. Pidiendo scoring...");
-                        socket.emit('request_leaderboard_update');
-                    });
-                    
-                    socket.on('actualizar_ranking', (usuarios) => {
-                        renderizarTabla(usuarios);
-                    });
-
-                    socket.on('leaderboard_data', (usuarios) => {
-                        renderizarTabla(usuarios);
-                    });
-                } else {
-                    console.log("Librería de sockets no detectada todavía.");
-                }
-            } catch (error) {
-                console.log("Error controlado en inicialización de red:", error);
-            }
-        });
     </script>
 </body>
 </html>

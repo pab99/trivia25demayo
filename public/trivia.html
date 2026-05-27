@@ -3,299 +3,244 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leaderboard - Gran Trivia de Mayo 🇦🇷</title>
+    <title>Pantalla Gigante - Trivia de Mayo 🇦🇷</title>
+    <link rel="stylesheet" href="css/style.css">
     <script src="/socket.io/socket.io.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
+    <script src="datos-curiosos.js"></script>
+
     <style>
         :root {
-            --celeste: #74b9ff;
-            --azul-oscuro: #0d2c54;
+            --azul-patrio: #0d2c54;
+            --celeste-patrio: #74b9ff;
             --amarillo-sol: #fbcb3b;
-            --blanco: #ffffff;
-            --gris-fondo: #f5f6fa;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
+            --blanco-puro: #ffffff;
         }
 
         body {
+            margin: 0;
+            padding: 0;
+            background: radial-gradient(circle, #ffffff 0%, #e3f2fd 100%);
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: radial-gradient(circle, var(--blanco) 0%, #e3f2fd 100%);
-            color: var(--azul-oscuro);
-            min-height: 100vh;
+            height: 100vh;
             display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
-            padding: 20px;
             overflow: hidden;
         }
 
-        .pantalla-layout {
-            display: flex;
-            width: 100%;
-            max-width: 1350px;
-            gap: 30px;
-            align-items: flex-start;
-            margin-top: 10px;
-            flex: 1;
-        }
-
-        .bloque-qr-acceso {
-            flex: 1;
-            background: var(--blanco);
-            border: 4px solid var(--azul-oscuro);
-            border-radius: 24px;
-            padding: 30px;
-            text-align: center;
-            box-shadow: 0px 15px 35px rgba(13, 44, 84, 0.15);
+        /* DISEÑO DE PANTALLA DIVIDIDA (SPLIT SCREEN) */
+        .columna-qr {
+            width: 35%;
+            background-color: var(--azul-patrio);
+            color: var(--blanco-puro);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 520px;
+            border-right: 6px solid var(--amarillo-sol);
+            box-sizing: border-box;
+            padding: 40px;
+            text-align: center;
         }
 
-        .bloque-qr-acceso h2 {
-            font-size: 2rem;
-            margin-bottom: 15px;
-            text-transform: uppercase;
-            color: var(--azul-oscuro);
-        }
-
-        #contenedor-qr {
+        .qr-placeholder {
             background: white;
             padding: 20px;
-            border-radius: 16px;
-            border: 2px solid #ced4da;
-            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
-            margin-bottom: 20px;
-        }
-
-        .bloque-qr-acceso p {
-            font-size: 1.2rem;
-            color: #57606f;
-            font-weight: 600;
-            line-height: 1.4;
-        }
-
-        .contenedor-ranking {
-            flex: 2;
-            background: var(--blanco);
-            border: 4px solid var(--azul-oscuro);
-            border-radius: 24px;
-            box-shadow: 0px 20px 40px rgba(13, 44, 84, 0.2);
-            padding: 25px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            min-height: 520px;
-        }
-
-        header {
-            text-align: center;
-            margin-bottom: 15px;
-            width: 100%;
-        }
-
-        header h1 {
-            font-size: 3rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--azul-oscuro);
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 5px;
-        }
-
-        .sol-patrio {
-            font-size: 3rem;
-            animation: spin 20s linear infinite;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            margin: 25px 0;
             display: inline-block;
         }
-
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-
-        .fila-ranking {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 10px 20px;
-            background: var(--gris-fondo);
-            border-radius: 12px;
-            border-left: 6px solid #ced4da;
-            font-size: 1.4rem;
-            font-weight: bold;
+        
+        .qr-placeholder img {
+            display: block;
+            width: 280px;
+            height: 280px;
         }
 
-        .fila-ranking.puesto-1 {
-            background: #fff9db;
-            border-left: 6px solid var(--amarillo-sol);
-            transform: scale(1.01);
-            font-size: 1.7rem;
-            padding: 14px 25px;
-            box-shadow: 0px 4px 12px rgba(251, 203, 59, 0.2);
-        }
-        .fila-ranking.puesto-2 {
-            background: #f1f2f6;
-            border-left: 6px solid #a4b0be;
-            font-size: 1.5rem;
-        }
-        .fila-ranking.puesto-3 {
-            background: #faf0e6;
-            border-left: 6px solid #cd7f32;
-            font-size: 1.45rem;
-        }
-
-        .izquierda-bloque {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .numero-puesto { min-width: 40px; text-align: center; }
-        .medalla { font-size: 1.8rem; }
-        .nombre-usuario { color: var(--azul-oscuro); }
-
-        .puntos-usuario {
-            color: #27ae60;
-            background: rgba(46, 204, 113, 0.1);
-            padding: 4px 14px;
-            border-radius: 30px;
-            text-align: right;
-            min-width: 130px;
-        }
-
-        .sin-jugadores {
-            text-align: center;
-            padding: 60px;
-            font-size: 1.6rem;
-            color: #7f8c8d;
-            font-style: italic;
-        }
-
-        footer {
-            text-align: center;
-            padding: 15px 0 5px 0;
-            font-size: 0.95rem;
-            color: #7f8c8d;
+        .columna-dinamica {
+            width: 65%;
+            height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
-            width: 100%;
-            margin-top: 20px;
+            padding: 50px;
+            box-sizing: border-box;
         }
 
-        .logo-tecnoincas {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: repeating-conic-gradient(from 0deg, var(--amarillo-sol) 0deg 30deg, #d4a314 30deg 60deg);
-            border: 2px solid #555;
-            display: inline-block;
-            position: relative;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+        .tarjeta-contenedor {
+            background: var(--blanco-puro);
+            border: 4px solid var(--azul-patrio);
+            border-radius: 24px;
+            width: 100%;
+            max-width: 900px;
+            height: 80vh;
+            padding: 40px;
+            box-shadow: 0 15px 40px rgba(13, 44, 84, 0.12);
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
         }
-        .logo-tecnoincas::after {
-            content: '';
-            position: absolute;
-            width: 8px;
-            height: 8px;
-            background: #95a5a6;
-            border-radius: 50%;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            border: 1px solid #555;
+
+        .modulo-pantalla {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        h2 {
+            color: var(--azul-patrio);
+            font-size: 2.5rem;
+            margin-top: 0;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* TABLA RANKING */
+        .tabla-leaderboard {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 1.6rem;
+        }
+        .tabla-leaderboard tr {
+            border-bottom: 2px solid #f1f2f6;
+        }
+        .tabla-leaderboard td {
+            padding: 18px 15px;
+            color: #2c3e50;
+        }
+        .puesto-top { font-weight: bold; color: var(--azul-patrio); width: 10%; }
+        .usuario-name { font-weight: 600; width: 65%; }
+        .puntos-total { text-align: right; font-weight: bold; color: #2ecc71; width: 25%; }
+
+        /* SECCIÓN SABÍAS QUE */
+        .contenido-curioso {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            flex: 1;
+            text-align: center;
+            padding: 0 30px;
+        }
+
+        .texto-pregunta {
+            color: var(--azul-patrio);
+            font-size: 2.6rem;
+            margin-bottom: 25px;
+            line-height: 1.3;
+        }
+
+        .texto-explicacion {
+            font-size: 1.8rem;
+            color: #57606f;
+            line-height: 1.6;
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 16px;
+            border-left: 6px solid var(--celeste-patrio);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
 <body>
 
-    <header>
-        <div class="sol-patrio">☀️</div>
-        <h1>Gran Trivia de Mayo</h1>
-    </header>
-
-    <div class="pantalla-layout">
-        <div class="bloque-qr-acceso">
-            <h2>¡Sumate a Jugar!</h2>
-            <div id="contenedor-qr"></div>
-            <p>Escaneá el código QR con tu celular,<br>ingresá tu Instagram y participá en vivo 🇦🇷</p>
+    <div class="columna-qr">
+        <h1 style="font-size: 2.8rem; margin: 0; letter-spacing: 1px;">¡SUMATE A JUGAR!</h1>
+        <p style="font-size: 1.3rem; opacity: 0.9; margin-top: 10px;">Escaneá el código QR con tu celular para ingresar tu usuario de Instagram</p>
+        
+        <div class="qr-placeholder">
+            <img src="img/qr-trivia.png" alt="Escanear QR para Jugar">
         </div>
-
-        <div class="contenedor-ranking" id="lista-leaderboard">
-            <div class="sin-jugadores">Esperando que se conecten los primeros patriotas... 🇦🇷</div>
+        
+        <div style="font-size: 1.6rem; font-weight: bold; background: var(--amarillo-sol); color: var(--azul-patrio); padding: 10px 20px; border-radius: 30px;">
+            🇦🇷 trivia25demayo.onrender.com
         </div>
     </div>
 
-    <footer>
-        <div class="logo-tecnoincas"></div>
-        <span>(R) Tecnoincas.com.ar</span>
-    </footer>
+    <div class="columna-dinamica">
+        <div class="tarjeta-contenedor">
+            
+            <div id="contenedor-ranking" class="modulo-pantalla">
+                <h2>🏆 Tabla de Posiciones 🏆</h2>
+                <table class="tabla-leaderboard">
+                    <tbody id="lista-posiciones">
+                        <tr><td class="puesto-top">#1</td><td class="usuario-name">@esperando_jugadores</td><td class="puntos-total">0 pts</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="contenedor-sabiasque" class="modulo-pantalla" style="display: none;">
+                <h2>💡 ¿Sabías que...?</h2>
+                <div class="contenido-curioso">
+                    <div id="display-pregunta" class="texto-pregunta">Cargando dato histórico...</div>
+                    <div id="display-explicacion" class="texto-explicacion">Por favor espere.</div>
+                </div>
+            </div>
+
+        </div>
+    </div>
 
     <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            const socket = io();
-            const urlTrivia = window.location.origin; 
+        // Tu lógica WebSocket existente (ejemplo base de escucha)
+        const socket = io();
+        
+        socket.on('actualizar_ranking', (usuarios) => {
+            const tabla = document.getElementById('lista-posiciones');
+            if (!tabla) return;
             
-            new QRCode(document.getElementById("contenedor-qr"), {
-                text: urlTrivia,
-                width: 260,
-                height: 260,
-                colorDark : "#0d2c54",
-                colorLight : "#ffffff",
-                correctLevel : QRCode.CorrectLevel.H
-            });
-
-            socket.on('connect', () => {
-                console.log("Pantalla de Ranking conectada. Solicitando historial permanente...");
-                socket.emit('pedir_ranking_dashboard'); 
-            });
-
-            socket.on('update_ranking', (listaJugadores) => {
-                actualizarPantallaRankingCompleta(listaJugadores);
-            });
-
-            socket.on('data_ranking_dashboard', (listaJugadores) => {
-                actualizarPantallaRankingCompleta(listaJugadores);
-            });
-
-            function actualizarPantallaRankingCompleta(listaJugadores) {
-                const listaUI = document.getElementById('lista-leaderboard'); 
-                if (!listaUI) return;
-
-                listaUI.innerHTML = ""; 
-
-                if (listaJugadores.length === 0) {
-                    listaUI.innerHTML = "<div class='sin-jugadores'>Esperando que se conecten los primeros patriotas... 🇦🇷</div>";
-                    return;
-                }
-
-                listaJugadores.forEach((jugador, index) => {
-                    let medalla = "";
-                    let clasePuesto = "";
-                    
-                    if (index === 0) { medalla = "🥇 "; clasePuesto = "puesto-1"; }
-                    else if (index === 1) { medalla = "🥈 "; clasePuesto = "puesto-2"; }
-                    else if (index === 2) { medalla = "🥉 "; clasePuesto = "puesto-3"; }
-
-                    const item = document.createElement('div');
-                    item.className = `fila-ranking ${clasePuesto}`; 
-                    item.innerHTML = `
-                        <div class="izquierda-bloque">
-                            <span class="numero-puesto">${medalla}#${index + 1}</span>
-                            <span class="nombre-usuario">@${jugador.username}</span>
-                        </div>
-                        <span class="puntos-usuario">${jugador.puntos} pts</span>
-                    `;
-                    listaUI.appendChild(item);
-                });
-            }
+            // Renderizado dinámico según tu estructura backend de datos
+            tabla.innerHTML = usuarios.map((user, index) => `
+                <tr>
+                    <td class="puesto-top">#${index + 1}</td>
+                    <td class="usuario-name">@${user.username}</td>
+                    <td class="puntos-total">${user.puntos} pts</td>
+                </tr>
+            `).join('');
         });
+
+        // LÓGICA DE ROTACIÓN CÍCLICA CADA 10 SEGUNDOS
+        let indiceCurioso = 0;
+        let mostrandoRanking = true;
+
+        function ejecutarRotacion() {
+            const divRanking = document.getElementById('contenedor-ranking');
+            const divSabiasQue = document.getElementById('contenedor-sabiasque');
+            
+            // Verificamos que el archivo externo cargó correctamente las preguntas
+            if (typeof datosCuriosos === 'undefined' || datosCuriosos.length === 0) return;
+
+            if (mostrandoRanking) {
+                // 1. Ocultar Ranking, Mostrar "Sabías que..."
+                divRanking.style.display = 'none';
+                divSabiasQue.style.display = 'flex';
+                
+                // 2. Extraer el dato actual e inyectarlo en las cajas correspondientes
+                const datoActual = datosCuriosos[indiceCurioso];
+                document.getElementById('display-pregunta').innerText = datoActual.pregunta;
+                document.getElementById('display-explicacion').innerText = datoActual.explicacion;
+                
+                // 3. Mover el índice para la siguiente vuelta (vuelve a cero al final usando el operador modular)
+                indiceCurioso = (indiceCurioso + 1) % datosCuriosos.length;
+                mostrandoRanking = false;
+            } else {
+                // 1. Ocultar Sabías que, Mostrar Ranking actualizado
+                divSabiasQue.style.display = 'none';
+                divRanking.style.display = 'flex';
+                
+                mostrandoRanking = true;
+            }
+        }
+
+        // Ejecutar el loop permanente cada 10000ms (10 segundos exactos)
+        setInterval(ejecutarRotacion, 10000);
     </script>
 </body>
 </html>

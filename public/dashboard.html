@@ -329,40 +329,38 @@
             if (usr === USUARIO_VALIDO && pass === CLAVE_VALIDA) {
                 document.getElementById('seccion-login').style.display = 'none';
                 document.getElementById('seccion-dashboard').style.display = 'block';
-                
-                // Conectamos el socket con el servidor real de Render
                 inicializarConexionReal();
             } else {
                 alert('Credenciales incorrectas. Verifique los datos.');
             }
         }
 
+        function tokenizeUsername(username) {
+            return username.startsWith('@') ? username : '@' + username;
+        }
+
         function inicializarConexionReal() {
             socket = io();
 
-            // Le pedimos formalmente al servidor los datos del JSON
             socket.emit('pedir_ranking_dashboard');
 
-            // Recibimos los datos verdaderos del archivo JSON
             socket.on('data_ranking_dashboard', (listaJugadores) => {
                 const tbody = document.getElementById('tabla-usuarios-cuerpo');
                 const lblTotal = document.getElementById('lbl-total-usr');
                 const lblMax = document.getElementById('lbl-max-puntos');
                 
-                tbody.innerHTML = ""; // Limpiamos la tabla fija anterior
+                tbody.innerHTML = "";
                 
                 if (listaJugadores.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #7f8c8d;">Nadie ha participado todavía. ¡El ranking está listo para empezar de cero!</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #7f8c8d;">Nadie ha participado todavía.</td></tr>`;
                     lblTotal.innerText = "0";
                     lblMax.innerText = "0 pts";
                     return;
                 }
 
-                // Actualizamos los contadores reales de la cabecera
                 lblTotal.innerText = listaJugadores.length;
-                lblMax.innerText = listaJugadores[0].puntos + " pts"; // El primero de la lista ordenada tiene el máximo
+                lblMax.innerText = listaJugadores[0].puntos + " pts";
 
-                // Dibujamos la tabla fila por fila con los datos reales
                 listaJugadores.forEach((jugador, index) => {
                     let medalla = "";
                     if (index === 0) medalla = " 🥇";
@@ -372,7 +370,7 @@
                     const fila = document.createElement('tr');
                     fila.innerHTML = `
                         <td><strong>#${index + 1}</strong>${medalla}</td>
-                        <td>@${jugador.username}</td>
+                        <td>${tokenizeUsername(jugador.username)}</td>
                         <td class="txt-puntos-tabla" style="text-align: right;">${jugador.puntos} pts</td>
                     `;
                     tbody.appendChild(fila);
@@ -381,9 +379,8 @@
         }
 
         function descargarBaseDatos() {
-            // Permite al administrador descargar el archivo JSON directamente a su computadora
             if(socket) {
-                alert("Extrayendo la copia física de ranking_persistente.json...");
+                alert("Extrayendo ranking_persistente.json nativo...");
                 window.open('/ranking_persistente.json', '_blank');
             }
         }
@@ -404,7 +401,7 @@
                     }
                 }, 5000);
             } else if (estadoResetConfirmacion === 1) {
-                alert("Para limpiar la base, borra el archivo JSON o reinicia el módulo.");
+                alert("Para limpiar el historial completo, vaciá el archivo JSON en el disco.");
                 btn.innerText = "🗑️ Limpiar Lista de Usuarios";
                 btn.classList.remove('peligo');
                 estadoResetConfirmacion = 0;

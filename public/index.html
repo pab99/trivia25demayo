@@ -222,6 +222,7 @@
 <body>
     <div class="contenedor-movil">
         
+        <!-- PANTALLA DE LOGIN / INICIO -->
         <div id="pantalla-login" class="pantalla activa tarjeta-patria">
             <div class="emojis-patrios">🇦🇷 🏛️ ☀️ 🇦🇷</div>
             <h2 style="color: var(--azul-oscuro); margin-top: 0;">¡Gran Trivia de Mayo!</h2>
@@ -235,6 +236,7 @@
             </div>
         </div>
 
+        <!-- PANTALLA DE JUEGO -->
         <div id="pantalla-juego" class="pantalla tarjeta-patria">
             <div class="header-juego">
                 <span id="txt-usuario">@-</span>
@@ -255,6 +257,7 @@
             <div id="contenedor-opciones"></div>
         </div>
 
+        <!-- PANTALLA FINAL / RESULTADOS -->
         <div id="pantalla-fin" class="pantalla tarjeta-patria">
             <h2 id="fin-titulo" style="font-size: 1.8rem;">¡Fin de la partida!</h2>
             <p id="fin-mensaje" style="color: #57606f; line-height: 1.4; margin-bottom: 5px;"></p>
@@ -264,6 +267,7 @@
             <div style="font-size: 1.1rem; color: #7f8c8d; margin-top: 5px;">Puntaje obtenido final:</div>
             <h3 id="fin-puntos" style="font-size: 2.5rem; color: var(--azul-oscuro); margin: 10px 0;">0 pts</h3>
             
+            <!-- ENLACE DE REDIRECCIÓN LIMPIA -->
             <a href="https://trivia25demayo.onrender.com" class="opcion-btn" style="text-align:center; background: var(--azul-oscuro); color: white; border-color: var(--azul-oscuro); display: block; font-weight: bold;" onclick="playSound('click')">🔄 Volver a Jugar</a>
         </div>
 
@@ -324,62 +328,69 @@
             } catch(e) {}
         }
 
-        const keys = [
-            '1','2','3','4','5','6','7','8','9','0',
-            'q','w','e','r','t','y','u','i','o','p',
-            'a','s','d','f','g','h','j','k','l','_',
-            'z','x','c','v','b','n','m','.','-','@'
-        ];
-        const teclado = document.getElementById('teclado-virtual');
-        
-        keys.forEach(key => {
-            const btn = document.createElement('button');
-            btn.innerText = key;
-            btn.onclick = () => {
-                playSound('click');
-                if (username.length < 20) {
-                    username += key;
+        // CONTROL SEGURO DE CONSTRUCCIÓN DEL TECLADO (Al cargar el DOM)
+        document.addEventListener("DOMContentLoaded", () => {
+            const keys = [
+                '1','2','3','4','5','6','7','8','9','0',
+                'q','w','e','r','t','y','u','i','o','p',
+                'a','s','d','f','g','h','j','k','l','_',
+                'z','x','c','v','b','n','m','.','-','@'
+            ];
+            const teclado = document.getElementById('teclado-virtual');
+            
+            if (teclado) {
+                keys.forEach(key => {
+                    const btn = document.createElement('button');
+                    btn.innerText = key;
+                    btn.onclick = () => {
+                        playSound('click');
+                        if (username.length < 20) {
+                            username += key;
+                            document.getElementById('username-display').value = username;
+                        }
+                    };
+                    teclado.appendChild(btn);
+                });
+
+                const btnBorrar = document.createElement('button');
+                btnBorrar.innerText = '⌫';
+                btnBorrar.className = 'btn-ancho';
+                btnBorrar.onclick = () => {
+                    playSound('click');
+                    username = username.slice(0, -1);
                     document.getElementById('username-display').value = username;
-                }
-            };
-            teclado.appendChild(btn);
-        });
+                };
+                teclado.appendChild(btnBorrar);
 
-        const btnBorrar = document.createElement('button');
-        btnBorrar.innerText = '⌫';
-        btnBorrar.className = 'btn-ancho';
-        btnBorrar.onclick = () => {
-            playSound('click');
-            username = username.slice(0, -1);
-            document.getElementById('username-display').value = username;
-        };
-        teclado.appendChild(btnBorrar);
-
-        const btnJugar = document.createElement('button');
-        btnJugar.innerText = 'INGRESAR';
-        btnJugar.className = 'btn-action';
-        btnJugar.onclick = () => {
-            if (username.trim().length > 2) {
-                playSound('success');
-                document.getElementById('txt-usuario').innerText = "@" + username.replace('@','');
-                activarMantenerPantallaEncendida();
-                socket.emit('join_game', username);
-                cambiarPantalla('pantalla-juego');
-                socket.emit('get_pregunta');
-            } else {
-                alert('Ingresá tu usuario de Instagram.');
+                const btnJugar = document.createElement('button');
+                btnJugar.innerText = 'INGRESAR';
+                btnJugar.className = 'btn-action';
+                btnJugar.onclick = () => {
+                    if (username.trim().length > 2) {
+                        playSound('success');
+                        document.getElementById('txt-usuario').innerText = "@" + username.replace('@','');
+                        activarMantenerPantallaEncendida();
+                        socket.emit('join_game', username);
+                        cambiarPantalla('pantalla-juego');
+                        socket.emit('get_pregunta');
+                    } else {
+                        alert('Ingresá tu usuario de Instagram.');
+                    }
+                };
+                teclado.appendChild(btnJugar);
             }
-        };
-        teclado.appendChild(btnJugar);
+        });
 
         function cambiarPantalla(id) {
             document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('activa'));
-            document.getElementById(id).classList.add('activa');
+            const target = document.getElementById(id);
+            if (target) target.classList.add('activa');
         }
 
         function iniciarTimer() {
             clearInterval(timerInterval);
             const barra = document.getElementById('mi-barra');
+            if (!barra) return;
             let tiempoRestante = TIEMPO_LIMITE;
             barra.style.width = "100%";
             barra.style.backgroundColor = "var(--celeste)";
@@ -401,4 +412,134 @@
         }
 
         function procesarTiempoAgotado() {
-            document.querySelectorAll('.opcion-btn').
+            document.querySelectorAll('.opcion-btn').forEach(b => b.disabled = true);
+            playSound('fail');
+            socket.emit('enviar_respuesta', {
+                preguntaId: preguntaActual.id,
+                respuesta: "__TIEMPO_AGOTADO__",
+                intento: intentoActual,
+                tiempoEmpleado: TIEMPO_LIMITE
+            });
+        }
+
+        socket.on('pregunta_data', (data) => {
+            preguntaActual = data;
+            intentoActual = 1;
+            tiempoInicio = Date.now();
+
+            document.getElementById('txt-pregunta-num').innerText = `Pregunta ${data.numeroPregunta}/10`;
+            document.getElementById('pregunta-titulo').innerText = data.pregunta;
+            
+            const contenedor = document.getElementById('contenedor-opciones');
+            if (contenedor) {
+                contenedor.innerHTML = '';
+                data.opciones.forEach(opcion => {
+                    const btn = document.createElement('button');
+                    btn.className = 'opcion-btn';
+                    btn.innerText = opcion;
+                    btn.onclick = () => responder(opcion, btn);
+                    contenedor.appendChild(btn);
+                });
+            }
+            iniciarTimer();
+        });
+
+        function responder(opcionSeleccionada, boton) {
+            clearInterval(timerInterval);
+            playSound('click');
+            const tiempoEmpleado = (Date.now() - tiempoInicio) / 1000;
+            document.querySelectorAll('.opcion-btn').forEach(b => b.disabled = true);
+            boton.id = "btn-evaluando";
+
+            socket.emit('enviar_respuesta', {
+                preguntaId: preguntaActual.id,
+                respuesta: opcionSeleccionada,
+                intento: intentoActual,
+                tiempoEmpleado: tiempoEmpleado
+            });
+        }
+
+        socket.on('resultado_respuesta', (res) => {
+            clearInterval(timerInterval); 
+            const btnPresionado = document.getElementById('btn-evaluando');
+            
+            if (res.correcta) {
+                playSound('success');
+                if (btnPresionado) btnPresionado.classList.add('correcta-anim');
+                
+                puntosLocales = res.puntos;
+                document.getElementById('txt-puntos').innerText = `Pts: ${puntosLocales}`;
+                
+                if ([3, 6, 9, 12].includes(res.combo)) {
+                    document.getElementById('txt-combo').innerText = `🔥 COMBO x${res.combo === 3 ? 2 : res.combo === 6 ? 4 : res.combo === 9 ? 6 : 10} 🔥`;
+                } else {
+                    document.getElementById('txt-combo').innerText = `Racha: ${res.combo} seguidas`;
+                }
+                
+                setTimeout(() => {
+                    if (btnPresionado) btnPresionado.id = "";
+                    socket.emit('get_pregunta');
+                }, 1000);
+            } else {
+                playSound('fail');
+                
+                if (res.tiempoAgotado) {
+                    actualizarVidas(res.vidas);
+                    document.getElementById('txt-combo').innerText = "⏱️ ¡Tiempo agotado!";
+                    setTimeout(() => {
+                        socket.emit('get_pregunta');
+                    }, 1200);
+                    return;
+                }
+
+                if (btnPresionado) btnPresionado.classList.add('incorrecta-anim');
+                
+                setTimeout(() => {
+                    if (btnPresionado) btnPresionado.id = "";
+                    
+                    if (res.intento === 1) {
+                        intentoActual = 2;
+                        document.querySelectorAll('.opcion-btn').forEach(b => {
+                            if (!b.classList.contains('incorrecta-anim')) b.disabled = false;
+                        });
+                        iniciarTimer(); 
+                    } else {
+                        document.getElementById('txt-combo').innerText = "";
+                        actualizarVidas(res.vidas);
+                        socket.emit('get_pregunta');
+                    }
+                }, 1000);
+            }
+        });
+
+        function actualizarVidas(vidas) {
+            let txt = "❤️ ".repeat(Math.max(0, vidas)) + "🖤 ".repeat(Math.max(0, 3 - vidas));
+            document.getElementById('txt-vidas').innerText = txt;
+        }
+
+        socket.on('game_over', (res) => {
+            clearInterval(timerInterval);
+            cambiarPantalla('pantalla-fin');
+            document.getElementById('fin-titulo').innerText = "¡Derrota Colonial! 🖤";
+            document.getElementById('fin-mensaje').innerText = "Te quedaste sin vidas o el tiempo.";
+            document.getElementById('fin-puesto').innerText = `Puesto Actual: #${res.puesto}`;
+            document.getElementById('fin-puntos').innerText = `${puntosLocales} pts`;
+        });
+
+        socket.on('game_completed', (res) => {
+            clearInterval(timerInterval);
+            cambiarPantalla('pantalla-fin');
+            document.getElementById('fin-titulo').innerText = "¡Héroe de la Patria! 🥇🇦🇷";
+            document.getElementById('fin-mensaje').innerText = "¡Felicitaciones! Completaste la ronda de 10 preguntas históricas con éxito.";
+            document.getElementById('fin-puesto').innerText = `🏆 ¡Puesto Final: #${res.puesto}!`;
+            document.getElementById('fin-puntos').innerText = `${puntosLocales} pts`;
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && username.trim().length > 2) {
+                activarMantenerPantallaEncendida();
+            }
+        });
+    </script>
+</body>
+</html>

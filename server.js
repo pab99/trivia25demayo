@@ -120,4 +120,146 @@ io.on('connection', (socket) => {
         socket.usernameClean = cleanUsername;
         
         // Guardamos en la nube asíncronamente y distribuimos el ranking actualizado en vivo
-        guardar
+        guardarRankingEnNube(cleanUsername); 
+        enviarRankingAClientes();
+    });
+
+    // Envío de preguntas dinámicas y aleatorias por participante
+    socket.on('get_pregunta', () => {
+        const cleanUsername = socket.usernameClean;
+        const jugador = jugadores[cleanUsername];
+        if (!jugador) return;
+
+        // Validamos si perdió todas las vidas o si ya contestó el límite de la ronda (10 preguntas)
+        if (jugador.vidas <= 0 || jugador.respondidas.length >= 10) {
+            const puesto = obtenerPuesto(cleanUsername);
+            socket.emit(jugador.vidas <= 0 ? 'game_over' : 'game_completed', { puntos: jugador.puntosRondaActual, puesto: puesto });
+            return;
+        }
+
+        // Filtrar preguntas del JSON para no repetir las que el usuario ya respondió
+        const disponibles = preguntasTodo.filter(p => !jugador.respondidas.includes(p.id));
+        if (disponibles.length === 0) {
+            const puesto = obtenerPuesto(cleanUsername);
+            socket.emit('game_completed', { puntos: jugador.puntosRondaActual, puesto: puesto });
+            return;
+        }
+
+        // Tomar una pregunta al azar de las disponibles y mezclar las opciones de respuesta
+        const pregunta = disponibles[Math.floor(Math.random() * disponibles.length)];
+        const opciones = [pregunta.correcta, ...pregunta.incorrectas].sort(() => Math.random() - 0.5);
+
+        socket.emit('pregunta_data', {
+            id: pregunta.id,
+            pregunta: pregunta.pregunta,
+            opciones: opciones,
+            numeroPregunta: jugador.respondidas.length + 1
+        });
+    });
+
+    // Procesamiento de las respuestas enviadas desde los celulares
+    socket.on('enviar_respuesta', ({ preguntaId, respuesta, intento, tiempoEmpleado }) => {
+        const cleanUsername = socket.usernameClean;
+        const jugador = jugadores[cleanUsername];
+        if (!jugador) return;
+
+        // Caso especial: El temporizador del cliente llegó a cero
+        if (respuesta === "__TIEMPO_AGOTADO__") {
+            jugador.respondidas.push(preguntaId);
+            jugador.vidas -= 1;
+            jugador.combo = 0; // Rompe la racha de aciertos consecutivos
+            
+            socket.emit('resultado_respuesta', { correcta: false, tiempoAgotado: true, intento: 2, vidas: jugador.vidas });
+            guardarRankingEnNube(cleanUsername);
+            enviarRankingAClientes();
+            return;
+        }
+
+        const pregunta = preguntasTodo.find(p => p.id === preguntaId);
+        const esCorrecta = pregunta.correcta === respuesta;
+
+        if (esCorrecta) {
+            jugador.respondidas.push(preguntaId);
+            jugador.combo += 1;
+
+            // Puntuación base según el intento (10pts en el primero, 5pts en el segundo)
+            let puntosBase = intento === 1 ? 10 : 5;
+            
+            // Bonus por velocidad usando un cálculo logarítmico basado en el tiempo empleado
+            let bonusTiempo = Math.max(0, Math.round(15 * Math.log(20 / (tiempoEmpleado + 1))));
+            let puntosPregunta = puntosBase + bonusTiempo;
+
+            // Sistema de multiplicadores por racha (Combo)
+            let multiplicador = 1;
+            if (jugador.combo === 3) multiplicador = 2;
+            if (jugador.combo === 6) multiplicador = 4;
+            if (jugador.combo === 9) multiplicador = 6;
+
+            jugador.puntosRondaActual += puntosPregunta * multiplicador;
+
+            // Récord histórico personal: Si superó su puntaje máximo anterior, lo actualizamos
+            if (jugador.puntosRondaActual > jugador.puntos) {
+                jugador.puntos = jugador.puntosRondaActual;
+            }
+
+            socket.emit('resultado_respuesta', { correcta: true, puntos: jugador.puntosRondaActual, combo: jugador.combo });
+        } else {
+            // Si falló pero fue su primer intento, le damos la segunda oportunidad
+            if (intento === 1) {
+                socket.emit('resultado_respuesta', { correcta: false, intento: 1 });
+            } else {
+                // Si falló en el segundo intento, pierde una vida y se rompe el combo
+                jugador.respondidas.push(preguntaId);
+                jugador.vidas -= 1;
+                jugador.combo = 0;
+                socket.emit('resultado_respuesta', { correcta: false, intento: 2, vidas: jugador.vidas });
+            }
+        }
+        
+        guardarRankingEnNube(cleanUsername); 
+        enviarRankingAClientes();
+    });
+
+    // Permite al usuario reiniciar la ronda desde la pantalla final para volver a jugar
+    socket.on('reset_game', () => {
+        const cleanUsername = socket.usernameClean;
+        if (cleanUsername && jugadores[cleanUsername]) {
+            jugadores[cleanUsername].vidas = 3;
+            jugadores[cleanUsername].respondidas = [];
+            jugadores[cleanUsername].combo = 0;
+            jugadores[cleanUsername].puntosRondaActual = 0;
+            
+            guardarRankingEnNube(cleanUsername);
+            enviarRankingAClientes();
+        }
+    });
+
+    socket.on('disconnect', () => {
+        console.log('🔌 Usuario desconectado:', socket.id);
+    });
+});
+
+// Función auxiliar para calcular el puesto en tiempo real de un usuario en el podio
+function obtenerPuesto(username) {
+    let listaOrdenada = Object.values(jugadores).sort((a, b) => b.puntos - a.puntos);
+    let index = listaOrdenada.findIndex(j => j.username === username);
+    return index !== -1 ? index + 1 : listaOrdenada.length;
+}
+
+// Función encargada de emitir la tabla general actualizada a todos los clientes enganchados
+function enviarRankingAClientes() {
+    let lista = Object.values(jugadores).sort((a, b) => b.puntos - a.puntos);
+    io.emit('update_ranking', lista);
+    io.emit('data_ranking_dashboard', lista); 
+}
+
+// INICIO DEL SERVIDOR WEB
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`🚀 Servidor central corriendo en el puerto ${PORT}`);
+    
+    // Auto-Ping interno (Keep-Alive) cada 5 minutos para mitigar que Render duerma el proceso por inactividad
+    setInterval(() => {
+        http.get(`http://localhost:${PORT}`, (res) => {}).on('error', (err) => {});
+    }, 300000); 
+});

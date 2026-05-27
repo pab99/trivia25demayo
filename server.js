@@ -13,43 +13,39 @@ app.use(express.static('public'));
 const PREGUNTAS_PATH = path.join(__dirname, 'preguntas.json');
 const RANKING_PATH = path.join(__dirname, 'ranking_persistente.json');
 
-// Cargar preguntas de forma segura
+// Cargar preguntas de forma segura al arrancar
 const preguntasTodo = JSON.parse(fs.readFileSync(PREGUNTAS_PATH, 'utf8'));
 
 let jugadores = {}; 
 
-// 🚨 LEER ANTES QUE NADA: Bloqueamos el inicio del servidor hasta que el JSON esté cargado en memoria
+// PERSISTENCIA: Leemos el disco antes de habilitar el servidor
 try {
     if (fs.existsSync(RANKING_PATH)) {
         const dataContenido = fs.readFileSync(RANKING_PATH, 'utf8').trim();
         if (dataContenido.length > 0) {
             jugadores = JSON.parse(dataContenido);
-            console.log('📦 BBDD RECUPERADA EXITOSAMENTE. Cantidad de jugadores en historial:', Object.keys(jugadores).length);
+            console.log('📦 BBDD RECUPERADA EXITOSAMENTE. Jugadores en historial:', Object.keys(jugadores).length);
             
-            // Reparación y normalización de usuarios existentes
+            // Normalización preventiva de usuarios guardados
             Object.keys(jugadores).forEach(usr => {
                 if (jugadores[usr].puntos === undefined) jugadores[usr].puntos = 0;
                 if (jugadores[usr].puntosRondaActual === undefined) jugadores[usr].puntosRondaActual = 0;
                 if (!jugadores[usr].respondidas) jugadores[usr].respondidas = [];
             });
-        } else {
-            console.log('📝 Archivo de ranking persistente detectado pero estaba vacío.');
         }
-    } else {
-        console.log('ℹ️ No existe archivo de ranking previo. Se creará uno nuevo al jugar.');
     }
 } catch (err) {
-    console.log('⚠️ Error crítico al inicializar la base de datos de persistencia:', err.message);
+    console.log('⚠️ Error al inicializar base de datos:', err.message);
     jugadores = {};
 }
 
-// Función de guardado con seguro contra borrados accidentales
+// Guardado físico seguro contra escrituras accidentales en blanco
 function guardarRankingEnDisco() {
     try {
         if (Object.keys(jugadores).length === 0 && fs.existsSync(RANKING_PATH)) {
             const chequeoFisico = fs.readFileSync(RANKING_PATH, 'utf8').trim();
             if (chequeoFisico.length > 5) {
-                console.log('🛑 Intento de sobreescritura en blanco bloqueado para proteger los Highscores.');
+                console.log('🛑 Bloqueada sobreescritura en blanco preventiva.');
                 return; 
             }
         }
@@ -62,11 +58,11 @@ function guardarRankingEnDisco() {
 io.on('connection', (socket) => {
     console.log('Dispositivo conectado:', socket.id);
 
-    // Enviar ranking inmediatamente al conectar (fundamental para la TV)
+    // Enviar ranking de inmediato al conectar (para la TV)
     let listaAlConectar = Object.values(jugadores).sort((a, b) => b.puntos - a.puntos);
     socket.emit('update_ranking', listaAlConectar);
 
-    // 📈 EVENTO PARA EL DASHBOARD: Escupe la data real del JSON al panel de control
+    // Evento del Dashboard y TV para sincronizar el historial JSON
     socket.on('pedir_ranking_dashboard', () => {
         let listaCompleta = Object.values(jugadores).sort((a, b) => b.puntos - a.puntos);
         socket.emit('data_ranking_dashboard', listaCompleta);
@@ -76,7 +72,7 @@ io.on('connection', (socket) => {
         const cleanUsername = username.toLowerCase().replace('@', '').trim();
         
         if (jugadores[cleanUsername]) {
-            console.log(`🔄 Revancha para @${cleanUsername} - Conservando récord de ${jugadores[cleanUsername].puntos} pts`);
+            console.log(`🔄 Revancha para @${cleanUsername} - Récord guardado: ${jugadores[cleanUsername].puntos} pts`);
             jugadores[cleanUsername].vidas = 3;
             jugadores[cleanUsername].respondidas = [];
             jugadores[cleanUsername].combo = 0;
@@ -97,9 +93,6 @@ io.on('connection', (socket) => {
         socket.usernameClean = cleanUsername;
         guardarRankingEnDisco(); 
         enviarRanking();
-        
-        // Avisar también al dashboard en tiempo real si está abierto
-        io.emit('data_ranking_dashboard', Object.values(jugadores).sort((a, b) => b.puntos - a.puntos));
     });
 
     socket.on('get_pregunta', () => {
@@ -152,15 +145,9 @@ io.on('connection', (socket) => {
             jugador.vidas -= 1;
             jugador.combo = 0;
             
-            socket.emit('resultado_respuesta', { 
-                correcta: false, 
-                tiempoAgotado: true,
-                intento: 2, 
-                vidas: jugador.vidas 
-            });
+            socket.emit('resultado_respuesta', { correcta: false, tiempoAgotado: true, intento: 2, vidas: jugador.vidas });
             guardarRankingEnDisco();
             enviarRanking();
-            io.emit('data_ranking_dashboard', Object.values(jugadores).sort((a, b) => b.puntos - a.puntos));
             return;
         }
 
@@ -200,20 +187,17 @@ io.on('connection', (socket) => {
         }
         guardarRankingEnDisco(); 
         enviarRanking();
-        io.emit('data_ranking_dashboard', Object.values(jugadores).sort((a, b) => b.puntos - a.puntos));
     });
 
     socket.on('reset_game', () => {
         const cleanUsername = socket.usernameClean;
         if (cleanUsername && jugadores[cleanUsername]) {
-            console.log(`🧹 Reset de ronda manual para @${cleanUsername}`);
             jugadores[cleanUsername].vidas = 3;
             jugadores[cleanUsername].respondidas = [];
             jugadores[cleanUsername].combo = 0;
             jugadores[cleanUsername].puntosRondaActual = 0;
             guardarRankingEnDisco();
             enviarRanking();
-            io.emit('data_ranking_dashboard', Object.values(jugadores).sort((a, b) => b.puntos - a.puntos));
         }
     });
 
@@ -231,19 +215,20 @@ function obtenerPuesto(username) {
 function enviarRanking() {
     let lista = Object.values(jugadores).sort((a, b) => b.puntos - a.puntos);
     io.emit('update_ranking', lista);
+    io.emit('data_ranking_dashboard', lista); 
 }
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Servidor corriendo en puerto ${PORT}`);
     
-    // 🔄 AUTO-PING INTERNO: Se auto-llama cada 5 minutos para mantenerse despierto en Render
+    // Auto-Ping interno cada 5 minutos contra suspensiones en Render
     setInterval(() => {
         const urlPropia = `http://localhost:${PORT}`;
         http.get(urlPropia, (res) => {
-            console.log(`📡 Auto-Ping Keep-Alive enviado con éxito. Estado: ${res.statusCode}`);
+            console.log(`📡 Keep-Alive automático exitoso. Estado: ${res.statusCode}`);
         }).on('error', (err) => {
-            console.log('⚠️ Error en Auto-Ping:', err.message);
+            console.log('⚠️ Alerta en Auto-Ping:', err.message);
         });
     }, 300000); 
 });

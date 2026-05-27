@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pantalla Gigante - Trivia de Mayo 🇦🇷</title>
-    <script src="/socket.io/socket.io.js"></script>
-    
     <style>
         :root {
             --azul-patrio: #0d2c54;
@@ -119,3 +117,175 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
+            align-items: center;
+            flex: 1;
+            text-align: center;
+            padding: 0 30px;
+        }
+
+        .texto-pregunta {
+            color: var(--azul-patrio);
+            font-size: 2.6rem;
+            margin-bottom: 25px;
+            line-height: 1.3;
+            font-weight: bold;
+        }
+
+        .texto-explicacion {
+            font-size: 1.8rem;
+            color: #57606f;
+            line-height: 1.6;
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 16px;
+            border-left: 6px solid var(--celeste-patrio);
+            text-align: left;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.99); }
+            to { opacity: 1; transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="columna-qr">
+        <h1 style="font-size: 2.6rem; margin: 0; letter-spacing: 1px; line-height: 1.2;">¡SUMATE A JUGAR!</h1>
+        <p style="font-size: 1.2rem; opacity: 0.9; margin-top: 10px;">Escaneá el código con tu celular para ingresar tu usuario de Instagram:</p>
+        
+        <div class="qr-placeholder">
+            <img src="img/qr-trivia.png" alt="QR Code" onerror="this.src='https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://trivia25demayo.onrender.com'">
+        </div>
+        
+        <div style="font-size: 1.4rem; font-weight: bold; background: var(--amarillo-sol); color: var(--azul-patrio); padding: 12px 24px; border-radius: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">
+            trivia25demayo.onrender.com
+        </div>
+    </div>
+
+    <div class="columna-dinamica">
+        <div class="tarjeta-contenedor">
+            
+            <div id="contenedor-ranking" class="modulo-pantalla">
+                <h2>🏆 Tabla de Posiciones 🏆</h2>
+                <table class="tabla-leaderboard">
+                    <tbody id="lista-posiciones">
+                        <tr>
+                            <td class="puesto-top">-</td>
+                            <td class="usuario-name">Cargando posiciones persistentes...</td>
+                            <td class="puntos-total">...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="contenedor-sabiasque" class="modulo-pantalla" style="display: none;">
+                <h2>💡 ¿Sabías que...?</h2>
+                <div class="contenido-curioso">
+                    <div id="display-pregunta" class="texto-pregunta">Preparando contenido...</div>
+                    <div id="display-explicacion" class="texto-explicacion">Buscando datos históricos del Cabildo...</div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+
+    <script>
+        const datosCuriosos = [
+            {
+                pregunta: "¿Quién fue el miembro más joven de la Primera Junta?",
+                explicacion: "¡Juan Larrea! Tenía solo 27 años cuando asumió como vocal el 25 de mayo de 1810."
+            },
+            {
+                pregunta: "¿El sol de la bandera ya existía en la Revolución de Mayo?",
+                explicacion: "No, el 'Sol de Mayo' se adoptó recién en 1813. Está inspirado en el dios del sol Inca, Inti."
+            },
+            {
+                pregunta: "¿Realmente se repartieron cintas celestes y blancas?",
+                explicacion: "Los historiadores afirman que en realidad eran cintas blancas (unión) y rojas (guerra), o retratos del rey Fernando VII."
+            },
+            {
+                pregunta: "¿Hizo buen tiempo aquel 25 de mayo?",
+                explicacion: "La tradición del 'Sol de Mayo' es literal: los registros confirman que el día estuvo lluvioso, frío y muy nublado."
+            },
+            {
+                pregunta: "¿Dónde se reunía en secreto la sociedad patriótica antes de la revolución?",
+                explicacion: "Se juntaban en la famosa Jabonería de Vieytes. Era el búnker conspirativo camuflado como negocio."
+            }
+        ];
+
+        let indiceCurioso = 0;
+        let mostrandoRanking = true;
+
+        function renderizarTabla(usuarios) {
+            const tabla = document.getElementById('lista-posiciones');
+            if (!tabla || !usuarios || usuarios.length === 0) return;
+            
+            tabla.innerHTML = usuarios.map((user, index) => `
+                <tr>
+                    <td class="puesto-top">#${index + 1}</td>
+                    <td class="usuario-name">@${user.username || user.id || 'anonimo'}</td>
+                    <td class="puntos-total">${user.puntos || 0} pts</td>
+                </tr>
+            `).join('');
+        }
+
+        // CONTROLADOR DE ROTACIÓN PERMANENTE CADA 10 SEGUNDOS (Funciona de inmediato)
+        function ejecutarRotacion() {
+            const divRanking = document.getElementById('contenedor-ranking');
+            const divSabiasQue = document.getElementById('contenedor-sabiasque');
+            
+            if (!divRanking || !divSabiasQue) return;
+
+            if (mostrandoRanking) {
+                divRanking.style.display = 'none';
+                divSabiasQue.style.display = 'flex';
+                
+                const datoActual = datosCuriosos[indiceCurioso];
+                document.getElementById('display-pregunta').innerText = datoActual.pregunta;
+                document.getElementById('display-explicacion').innerText = datoActual.explicacion;
+                
+                indiceCurioso = (indiceCurioso + 1) % datosCuriosos.length;
+                mostrandoRanking = false;
+            } else {
+                divSabiasQue.style.display = 'none';
+                divRanking.style.display = 'flex';
+                mostrandoRanking = true;
+            }
+        }
+
+        // Iniciamos el intervalo de inmediato de forma independiente
+        setInterval(ejecutarRotacion, 10000);
+
+        // CONEXIÓN DE WEBSOCKETS AISLADA EN UN BLOQUE SEGURO
+        document.addEventListener("DOMContentLoaded", () => {
+            try {
+                if (typeof io !== 'undefined') {
+                    const socket = io();
+                    
+                    socket.on('connect', () => {
+                        console.log("Conectado. Pidiendo scoring...");
+                        socket.emit('request_leaderboard_update');
+                    });
+                    
+                    socket.on('actualizar_ranking', (usuarios) => {
+                        renderizarTabla(usuarios);
+                    });
+
+                    socket.on('leaderboard_data', (usuarios) => {
+                        renderizarTabla(usuarios);
+                    });
+                } else {
+                    console.log("Librería de sockets no detectada todavía.");
+                }
+            } catch (error) {
+                console.log("Error controlado en inicialización de red:", error);
+            }
+        });
+    </script>
+</body>
+</html>

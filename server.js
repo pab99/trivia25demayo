@@ -55,6 +55,15 @@ function guardarRankingEnDisco() {
     }
 }
 
+// Endpoint para que el dashboard descargue de forma segura el ranking real
+app.get('/ranking_persistente.json', (req, res) => {
+    if (fs.existsSync(RANKING_PATH)) {
+        res.sendFile(RANKING_PATH);
+    } else {
+        res.status(404).json({ error: "El archivo de persistencia aún no se ha creado." });
+    }
+});
+
 io.on('connection', (socket) => {
     console.log('Dispositivo conectado:', socket.id);
 

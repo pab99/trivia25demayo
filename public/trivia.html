@@ -3,295 +3,396 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leaderboard - Gran Trivia de Mayo 🇦🇷</title>
+    <title>En Juego - Trivia de Mayo 🇦🇷</title>
     <script src="/socket.io/socket.io.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         :root {
-            --celeste: #74b9ff;
             --azul-oscuro: #0d2c54;
+            --celeste: #74b9ff;
             --amarillo-sol: #fbcb3b;
-            --blanco: #ffffff;
-            --gris-fondo: #f5f6fa;
+            --rojo-error: #ff7675;
+            --verde-exito: #2ecc71;
+            --gris-claro: #f5f6fa;
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: radial-gradient(circle, var(--blanco) 0%, #e3f2fd 100%);
-            color: var(--azul-oscuro);
+            background: var(--gris-claro);
+            color: #333;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: flex-start;
-            padding: 20px;
-            overflow: hidden;
+            padding: 15px;
         }
 
-        .pantalla-layout {
-            display: flex;
+        .cabecera-juego {
+            max-width: 600px;
             width: 100%;
-            max-width: 1350px;
-            gap: 30px;
-            align-items: flex-start;
-            margin-top: 10px;
-            flex: 1;
-        }
-
-        .bloque-qr-acceso {
-            flex: 1;
-            background: var(--blanco);
-            border: 4px solid var(--azul-oscuro);
-            border-radius: 24px;
-            padding: 30px;
-            text-align: center;
-            box-shadow: 0px 15px 35px rgba(13, 44, 84, 0.15);
             display: flex;
-            flex-direction: column;
+            justify-content: space-between;
             align-items: center;
-            justify-content: center;
-            min-height: 520px;
-        }
-
-        .bloque-qr-acceso h2 {
-            font-size: 2rem;
-            margin-bottom: 15px;
-            text-transform: uppercase;
-            color: var(--azul-oscuro);
-        }
-
-        #contenedor-qr {
             background: white;
-            padding: 20px;
-            border-radius: 16px;
-            border: 2px solid #ced4da;
-            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+            padding: 12px 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 15px;
+            border: 2px solid var(--azul-oscuro);
+        }
+
+        .indicador { font-weight: bold; font-size: 0.95rem; }
+        .indicador span { color: var(--azul-oscuro); font-size: 1.1rem; }
+
+        .contenedor-timer {
+            max-width: 600px;
+            width: 100%;
+            background: #dfe6e9;
+            height: 12px;
+            border-radius: 6px;
+            overflow: hidden;
+            margin-bottom: 15px;
+            border: 1px solid #ccd1d9;
+        }
+
+        .barra-timer {
+            height: 100%;
+            width: 100%;
+            background: var(--verde-exito);
+            transition: width 0.1s linear, background-color 0.5s ease;
+        }
+
+        .panel-pregunta {
+            max-width: 600px;
+            width: 100%;
+            background: white;
+            border-radius: 20px;
+            padding: 30px 20px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.08);
+            text-align: center;
+            border: 3px solid var(--celeste);
             margin-bottom: 20px;
         }
 
-        .bloque-qr-acceso p {
-            font-size: 1.2rem;
-            color: #57606f;
-            font-weight: 600;
-            line-height: 1.4;
-        }
-
-        .contenedor-ranking {
-            flex: 2;
-            background: var(--blanco);
-            border: 4px solid var(--azul-oscuro);
-            border-radius: 24px;
-            box-shadow: 0px 20px 40px rgba(13, 44, 84, 0.2);
-            padding: 25px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            min-height: 520px;
-        }
-
-        header {
-            text-align: center;
-            margin-bottom: 15px;
-            width: 100%;
-        }
-
-        header h1 {
-            font-size: 3rem;
+        .num-pregunta {
+            font-size: 0.85rem;
             text-transform: uppercase;
             letter-spacing: 1px;
-            color: var(--azul-oscuro);
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 5px;
-        }
-
-        .sol-patrio {
-            font-size: 3rem;
-            animation: spin 20s linear infinite;
-            display: inline-block;
-        }
-
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-
-        .fila-ranking {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 10px 20px;
-            background: var(--gris-fondo);
-            border-radius: 12px;
-            border-left: 6px solid #ced4da;
-            font-size: 1.4rem;
+            color: #7f8c8d;
+            margin-bottom: 10px;
             font-weight: bold;
         }
 
-        .fila-ranking.puesto-1 {
-            background: #fff9db;
-            border-left: 6px solid var(--amarillo-sol);
-            transform: scale(1.01);
-            font-size: 1.7rem;
-            padding: 14px 25px;
-            box-shadow: 0px 4px 12px rgba(251, 203, 59, 0.2);
-        }
-        .fila-ranking.puesto-2 {
-            background: #f1f2f6;
-            border-left: 6px solid #a4b0be;
-            font-size: 1.5rem;
-        }
-        .fila-ranking.puesto-3 {
-            background: #faf0e6;
-            border-left: 6px solid #cd7f32;
-            font-size: 1.45rem;
+        .texto-pregunta {
+            font-size: 1.3rem;
+            color: var(--azul-oscuro);
+            font-weight: bold;
+            line-height: 1.4;
         }
 
-        .izquierda-bloque {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .numero-puesto { min-width: 40px; text-align: center; }
-        .medalla { font-size: 1.8rem; }
-        .nombre-usuario { color: var(--azul-oscuro); }
-
-        .puntos-usuario {
-            color: #27ae60;
-            background: rgba(46, 204, 113, 0.1);
-            padding: 4px 14px;
-            border-radius: 30px;
-            text-align: right;
-            min-width: 130px;
-        }
-
-        .sin-jugadores {
-            text-align: center;
-            padding: 60px;
-            font-size: 1.6rem;
-            color: #7f8c8d;
-            font-style: italic;
-        }
-
-        /* Footer Estilo Tecnoincas */
-        footer {
-            text-align: center;
-            padding: 15px 0 5px 0;
-            font-size: 0.95rem;
-            color: #7f8c8d;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
+        .grilla-opciones {
+            max-width: 600px;
             width: 100%;
-            margin-top: 20px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
         }
 
-        .logo-tecnoincas {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: repeating-conic-gradient(from 0deg, var(--amarillo-sol) 0deg 30deg, #d4a314 30deg 60deg);
-            border: 2px solid #555;
-            display: inline-block;
-            position: relative;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+        .btn-opcion {
+            background: white;
+            border: 2px solid #ccd1d9;
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 1.05rem;
+            text-align: left;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            outline: none;
         }
-        .logo-tecnoincas::after {
-            content: '';
-            position: absolute;
-            width: 8px;
-            height: 8px;
-            background: #95a5a6;
-            border-radius: 50%;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            border: 1px solid #555;
+
+        .btn-opcion:hover:not(:disabled) {
+            background: #f0f4f8;
+            border-color: var(--azul-oscuro);
+        }
+
+        .btn-opcion.correcta {
+            background: var(--verde-exito) !important;
+            color: white !important;
+            border-color: #27ae60 !important;
+        }
+
+        .btn-opcion.incorrecta {
+            background: var(--rojo-error) !important;
+            color: white !important;
+            border-color: #e74c3c !important;
+        }
+
+        .panel-pantalla-final {
+            display: none;
+            max-width: 500px;
+            width: 100%;
+            background: white;
+            border-radius: 20px;
+            padding: 40px 25px;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+            text-align: center;
+            border: 4px solid var(--amarillo-sol);
+            margin-top: 5vh;
+        }
+
+        .combo-badge {
+            background: var(--amarillo-sol);
+            color: var(--azul-oscuro);
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 0.85rem;
+            display: none;
+        }
+
+        .btn-final {
+            padding: 14px 28px;
+            font-size: 1rem;
+            font-weight: bold;
+            color: white;
+            background: var(--azul-oscuro);
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-top: 25px;
         }
     </style>
 </head>
 <body>
 
-    <header>
-        <div class="sol-patrio">☀️</div>
-        <h1>Gran Trivia de Mayo</h1>
-    </header>
-
-    <div class="pantalla-layout">
-        <div class="bloque-qr-acceso">
-            <h2>¡Sumate a Jugar!</h2>
-            <div id="contenedor-qr"></div>
-            <p>Escaneá el código QR con tu celular,<br>ingresá tu Instagram y participá en vivo 🇦🇷</p>
+    <!-- PANTALLA EN JUEGO -->
+    <div id="contenedor-juego" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+        <div class="cabecera-juego">
+            <div class="indicador">Puntos: <span id="lbl-puntos">0</span></div>
+            <div class="indicador"><span id="lbl-combo" class="combo-badge">🔥 Combo x0</span></div>
+            <div class="indicador">Vidas: <span id="lbl-vidas">❤️❤️❤️</span></div>
         </div>
 
-        <div class="contenedor-ranking" id="lista-leaderboard">
-            <div class="sin-jugadores">Esperando que se conecten los primeros patriotas... 🇦🇷</div>
+        <div class="contenedor-timer">
+            <div id="barra-progreso-timer" class="barra-timer"></div>
+        </div>
+
+        <div class="panel-pregunta">
+            <div id="lbl-num-pregunta" class="num-pregunta">Pregunta 1 de 10</div>
+            <div id="lbl-texto-pregunta" class="texto-pregunta">Cargando pregunta...</div>
+        </div>
+
+        <div id="contenedor-opciones" class="grilla-opciones">
+            <!-- Botones inyectados dinámicamente -->
         </div>
     </div>
 
-    <footer>
-        <div class="logo-tecnoincas"></div>
-        <span>(R) Tecnoincas.com.ar</span>
-    </footer>
+    <!-- PANTALLA DE RESULTADO FINAL (GAME OVER / COMPLETO) -->
+    <div id="pantalla-final" class="panel-pantalla-final">
+        <h2 id="final-titulo" style="font-size: 2rem; color: var(--azul-oscuro); margin-bottom: 15px;">Fin del Juego</h2>
+        <p id="final-mensaje" style="font-size: 1.1rem; color: #555; margin-bottom: 25px;"></p>
+        <div style="background: var(--gris-claro); padding: 20px; border-radius: 12px; border: 1px solid #ddd;">
+            <div style="font-size: 1rem; color: #7f8c8d;">PUNTAJE OBTENIDO EN ESTA RONDA</div>
+            <div id="final-puntos" style="font-size: 3rem; font-weight: bold; color: var(--verde-exito); margin: 10px 0;">0</div>
+            <div style="font-size: 1.1rem; font-weight: bold; color: var(--azul-oscuro);">Puesto Actual en el Ranking: <span id="final-puesto">#0</span></div>
+        </div>
+        <button class="btn-final" onclick="volverAIntentar()">VOLVER A PARTICIPAR / REVANCHA</button>
+    </div>
 
     <script>
         const socket = io();
-        const contenedorLista = document.getElementById('lista-leaderboard');
+        let preguntaActualId = null;
+        let intentoActual = 1;
+        let tiempoMaximo = 20;
+        let tiempoRestante = 20;
+        let timerInterval = null;
+        let marcaTiempoInicio = 0;
+        let bloqueadoTotal = false;
 
-        const urlTrivia = window.location.origin; 
-        
-        new QRCode(document.getElementById("contenedor-qr"), {
-            text: urlTrivia,
-            width: 260,
-            height: 260,
-            colorDark : "#0d2c54",
-            colorLight : "#ffffff",
-            correctLevel : QRCode.CorrectLevel.H
+        // Recuperar usuario registrado
+        const usuarioLocal = localStorage.getItem('usuario_trivia');
+        if (!usuarioLocal) {
+            window.location.href = '/';
+        } else {
+            // Reconectar el socket al perfil del usuario
+            socket.emit('join_game', usuarioLocal);
+            // Solicitar la primera pregunta
+            socket.emit('get_pregunta');
+        }
+
+        socket.on('pregunta_data', (data) => {
+            bloqueadoTotal = false;
+            preguntaActualId = data.id;
+            intentoActual = 1;
+            
+            document.getElementById('lbl-num-pregunta').innerText = `Pregunta ${data.numeroPregunta} de 10`;
+            document.getElementById('lbl-texto-pregunta').innerText = data.pregunta;
+            
+            const contenedor = document.getElementById('contenedor-opciones');
+            contenedor.innerHTML = "";
+            
+            data.opciones.forEach(opcion => {
+                const btn = document.createElement('button');
+                btn.className = 'btn-opcion';
+                btn.innerText = opcion;
+                btn.onclick = () => procesarEleccion(btn, opcion);
+                contenedor.appendChild(btn);
+            });
+
+            iniciarContadorRegresivo();
         });
 
-        socket.on('update_ranking', (listaJugadores) => {
-            if (!listaJugadores || listaJugadores.length === 0) {
-                contenedorLista.innerHTML = '<div class="sin-jugadores">Esperando que se conecten los primeros patriotas... 🇦🇷</div>';
-                return;
-            }
+        function iniciarContadorRegresivo() {
+            clearInterval(timerInterval);
+            tiempoRestante = tiempoMaximo;
+            marcaTiempoInicio = Date.now();
+            
+            const barra = document.getElementById('barra-progreso-timer');
+            barra.style.width = '100%';
+            barra.style.backgroundColor = 'var(--verde-exito)';
 
-            contenedorLista.innerHTML = '';
-            const top10 = listaJugadores.slice(0, 10);
+            timerInterval = setInterval(() => {
+                tiempoRestante -= 0.1;
+                let porcentaje = (tiempoRestante / tiempoMaximo) * 100;
+                barra.style.width = `${porcentaje}%`;
 
-            top10.forEach((jugador, indice) => {
-                const numPuesto = indice + 1;
-                const fila = document.createElement('div');
-                
-                let clasePuesto = 'fila-ranking';
-                let indicadorPuesto = `#${numPuesto}`;
-
-                if (numPuesto === 1) {
-                    clasePuesto += ' puesto-1';
-                    indicadorPuesto = '<span class="medalla">🥇</span>';
-                } else if (numPuesto === 2) {
-                    clasePuesto += ' puesto-2';
-                    indicadorPuesto = '<span class="medalla">🥈</span>';
-                } else if (numPuesto === 3) {
-                    clasePuesto += ' puesto-3';
-                    indicadorPuesto = '<span class="medalla">🥉</span>';
+                if (porcentaje < 50 && porcentaje > 25) {
+                    barra.style.backgroundColor = 'var(--amarillo-sol)';
+                } else if (porcentaje <= 25) {
+                    barra.style.backgroundColor = 'var(--rojo-error)';
                 }
 
-                fila.className = clasePuesto;
-                fila.innerHTML = `
-                    <div class="izquierda-bloque">
-                        <div class="numero-puesto">${indicadorPuesto}</div>
-                        <div class="nombre-usuario">@${jugador.username}</div>
-                    </div>
-                    <div class="puntos-usuario">${jugador.puntos} pts</div>
-                `;
-                
-                contenedorLista.appendChild(fila);
+                if (tiempoRestante <= 0) {
+                    clearInterval(timerInterval);
+                    manejarTiempoAgotado();
+                }
+            }, 100);
+        }
+
+        function procesarEleccion(btnSeleccionado, opcionTexto) {
+            if (bloqueadoTotal) return;
+            clearInterval(timerInterval);
+
+            let tiempoEmpleado = (Date.now() - marcaTiempoInicio) / 1000;
+
+            // Bloqueamos clics repetidos
+            const botones = document.querySelectorAll('.btn-opcion');
+            botones.forEach(b => b.disabled = true);
+
+            socket.emit('enviar_respuesta', {
+                preguntaId: preguntaActualId,
+                respuesta: opcionTexto,
+                intento: intentoActual,
+                tiempoEmpleado: tiempoEmpleado
             });
+        }
+
+        socket.on('resultado_respuesta', (res) => {
+            const botones = document.querySelectorAll('.btn-opcion');
+            
+            if (res.correcta) {
+                // Pintar de verde el que clickeó
+                botones.forEach(b => {
+                    if (b.disabled && b.style.backgroundColor !== '') return; 
+                    // Si el backend validó la respuesta, buscamos el seleccionado
+                    b.classList.forEach(c => {});
+                });
+
+                // Hack rápido visual para pintar la correcta elegida
+                botones.forEach(b => {
+                    if (b.disabled && b.matches(':focus') || botones.length === 1 || b.style.borderColor === 'var(--azul-oscuro)') {}
+                });
+
+                // Para simplificar, buscamos cuál fue pulsado justo antes
+                let algunoPintado = false;
+                botones.forEach(b => {
+                    b.onclick = null;
+                });
+                
+                // Forzar feedback del evento actual buscando foco o aplicando clase al vuelo
+                // El server responde rápido, usamos un retraso para avanzar
+                document.getElementById('lbl-puntos').innerText = res.puntos;
+                
+                // Manejo de badge de combo
+                const badgeCombo = document.getElementById('lbl-combo');
+                if (res.combo > 0) {
+                    badgeCombo.innerText = `🔥 Combo x${res.combo}`;
+                    badgeCombo.style.display = 'inline-block';
+                } else {
+                    badgeCombo.style.display = 'none';
+                }
+
+                setTimeout(() => {
+                    socket.emit('get_pregunta');
+                }, 1200);
+
+            } else {
+                // Fue incorrecta
+                if (res.intento === 1) {
+                    // Dar segunda oportunidad
+                    intentoActual = 2;
+                    alert('❌ Respuesta incorrecta. ¡Tenés un segundo intento por la mitad de los puntos!');
+                    botones.forEach(b => b.disabled = false);
+                    iniciarContadorRegresivo(); // Resetea el tiempo para el intento 2
+                } else {
+                    // Perdió el segundo intento o fue tiempo agotado
+                    actualizarVidasVisual(res.vidas);
+                    document.getElementById('lbl-combo').style.display = 'none';
+                    
+                    setTimeout(() => {
+                        socket.emit('get_pregunta');
+                    }, 1200);
+                }
+            }
         });
+
+        function manejarTiempoAgotado() {
+            bloqueadoTotal = true;
+            const botones = document.querySelectorAll('.btn-opcion');
+            botones.forEach(b => b.disabled = true);
+
+            socket.emit('enviar_respuesta', {
+                preguntaId: preguntaActualId,
+                respuesta: "__TIEMPO_AGOTADO__",
+                intento: 2,
+                tiempoEmpleado: 20
+            });
+        }
+
+        function actualizarVidasVisual(cantVidas) {
+            let corazones = "";
+            for (let i = 0; i < 3; i++) {
+                corazones += i < cantVidas ? "❤️" : "🖤";
+            }
+            document.getElementById('lbl-vidas').innerText = corazones;
+        }
+
+        // Eventos de finalización
+        socket.on('game_over', (data) => {
+            mostrarPantallaFinal("🚨 Juego Terminado", "Te quedaste sin vidas. ¡Buen intento!", data);
+        });
+
+        socket.on('game_completed', (data) => {
+            mostrarPantallaFinal("🏆 ¡Felicitaciones!", "Completaste las 10 preguntas de la ronda con éxito.", data);
+        });
+
+        function mostrarPantallaFinal(titulo, mensaje, data) {
+            clearInterval(timerInterval);
+            document.getElementById('contenedor-juego').style.display = 'none';
+            document.getElementById('pantalla-final').style.display = 'block';
+            
+            document.getElementById('final-titulo').innerText = titulo;
+            document.getElementById('final-mensaje').innerText = mensaje;
+            document.getElementById('final-puntos').innerText = data.puntos + " pts";
+            document.getElementById('final-puesto').innerText = `#${data.puesto}`;
+        }
+
+        function volverAIntentar() {
+            socket.emit('reset_game');
+            window.location.href = '/';
+        }
     </script>
 </body>
 </html>

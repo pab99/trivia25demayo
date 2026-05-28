@@ -33,7 +33,14 @@ io.on('connection', (socket) => {
     socket.on('pedir_ranking_dashboard', async () => {
         enviarRanking();
     });
-
+socket.on('get_pregunta', async () => {
+    console.log("DEBUG: Usuario intentando pedir pregunta:", socket.usernameClean);
+    const jugador = await Jugador.findOne({ username: socket.usernameClean });
+    
+    if (!jugador) {
+        console.log("DEBUG: Jugador no encontrado en BD. ¿El usuario hizo join_game?");
+        return;
+    }
     socket.on('join_game', async (username) => {
         const cleanUsername = username.toLowerCase().replace('@', '').trim();
         const horaActual = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });

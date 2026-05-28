@@ -113,6 +113,7 @@
         .btn-reset { background-color: #7f8c8d; }
         .btn-reset.peligo { background-color: var(--rojo-error); }
 
+        /* 📊 GRÁFICO RECONFIGURADO DE 11 COLUMNAS (CADA 1 HORA) */
         .grafico-linea {
             background: var(--gris-claro);
             height: 180px;
@@ -123,29 +124,29 @@
             display: flex;
             align-items: flex-end;
             justify-content: space-between;
-            padding: 0 10px;
+            padding: 0 5px;
         }
 
         .punto-curva {
-            width: 45px;
+            width: 28px; /* Reducido para que entren cómodas las 11 barras */
             background: var(--celeste);
             border-radius: 4px 4px 0 0;
             text-align: center;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             color: var(--azul-oscuro);
             font-weight: bold;
             padding-top: 4px;
             transition: height 0.5s ease;
-            min-height: 20px;
+            min-height: 18px;
         }
 
         .eje-x-labels {
             display: flex;
             justify-content: space-between;
             margin-top: 5px;
-            font-size: 0.8rem;
+            font-size: 0.72rem;
             color: #7f8c8d;
-            padding: 0 5px;
+            padding: 0 2px;
         }
 
         .barra-porcentaje-contenedor { margin: 15px 0; }
@@ -175,6 +176,7 @@
 
         .tabla-auditoria tr:nth-child(even) { background-color: var(--gris-claro); }
         .tabla-auditoria .txt-puntos-tabla { font-weight: bold; color: var(--verde-exito); }
+        .txt-hora { color: #7f8c8d; font-family: monospace; font-size: 0.95rem; }
 
         footer {
             text-align: center;
@@ -203,7 +205,6 @@
             content: ''; position: absolute; width: 6px; height: 6px; background: #95a5a6; border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); border: 1px solid #555;
         }
 
-        /* 🖨️ SECCIÓN IMPRESIÓN REPARADA */
         @media print {
             body { background: white; color: black; }
             #seccion-login, .header-dash, .tarjeta-control-operativa, footer { display: none !important; }
@@ -262,17 +263,22 @@
 
             <div>
                 <div class="tarjeta-control">
-                    <h3>Curva de Ingreso de Usuarios (10:00 a 20:00 hs)</h3>
+                    <h3>Curva de Ingreso Real de Usuarios (Por Hora)</h3>
                     <div class="grafico-linea">
                         <div id="curva-h10" class="punto-curva" style="height: 0%;">0</div>
+                        <div id="curva-h11" class="punto-curva" style="height: 0%;">0</div>
                         <div id="curva-h12" class="punto-curva" style="height: 0%;">0</div>
+                        <div id="curva-h13" class="punto-curva" style="height: 0%;">0</div>
                         <div id="curva-h14" class="punto-curva" style="height: 0%;">0</div>
+                        <div id="curva-h15" class="punto-curva" style="height: 0%;">0</div>
                         <div id="curva-h16" class="punto-curva" style="height: 0%;">0</div>
+                        <div id="curva-h17" class="punto-curva" style="height: 0%;">0</div>
                         <div id="curva-h18" class="punto-curva" style="height: 0%;">0</div>
+                        <div id="curva-h19" class="punto-curva" style="height: 0%;">0</div>
                         <div id="curva-h20" class="punto-curva" style="height: 0%;">0</div>
                     </div>
                     <div class="eje-x-labels">
-                        <span>10:00 hs</span><span>12:00 hs</span><span>14:00 hs</span><span>16:00 hs</span><span>18:00 hs</span><span>20:00 hs</span>
+                        <span>10h</span><span>11h</span><span>12h</span><span>13h</span><span>14h</span><span>15h</span><span>16h</span><span>17h</span><span>18h</span><span>19h</span><span>20h</span>
                     </div>
                 </div>
 
@@ -297,14 +303,15 @@
             <table class="tabla-auditoria">
                 <thead>
                     <tr>
-                        <th style="width: 15%;">Puesto</th>
-                        <th style="width: 50%;">Usuario de Instagram</th>
-                        <th style="width: 35%; text-align: right;">Puntaje Máximo Histórico</th>
+                        <th style="width: 12%;">Puesto</th>
+                        <th style="width: 43%;">Usuario de Instagram</th>
+                        <th style="width: 20%; text-align: center;">Hora Participación</th>
+                        <th style="width: 25%; text-align: right;">Puntaje Máximo Histórico</th>
                     </tr>
                 </thead>
                 <tbody id="tabla-usuarios-cuerpo">
                     <tr>
-                        <td colspan="3" style="text-align: center; color: #999;">Esperando autenticación...</td>
+                        <td colspan="4" style="text-align: center; color: #999;">Esperando autenticación...</td>
                     </tr>
                 </tbody>
             </table>
@@ -344,6 +351,17 @@
             return username.startsWith('@') ? username : '@' + username;
         }
 
+        // Obtener hora actual del sistema local si el JSON no trae hora grabada
+        function obtenerHoraFormateada(jugador) {
+            if (jugador.hora) return jugador.hora; 
+            
+            // Auxiliar de contingencia en vivo por si no se grabaron horas previas
+            const d = new Date();
+            let hh = String(d.getHours()).padStart(2, '0');
+            let mm = String(d.getMinutes()).padStart(2, '0');
+            return `${hh}:${mm}`;
+        }
+
         function inicializarConexionReal() {
             socket = io();
 
@@ -357,10 +375,10 @@
                 tbody.innerHTML = "";
                 
                 if (!listaJugadores || listaJugadores.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #7f8c8d;">Nadie ha participado todavía.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #7f8c8d;">Nadie ha participado todavía.</td></tr>`;
                     lblTotal.innerText = "0";
                     lblMax.innerText = "0 pts";
-                    procesarAnaliticasReales([]); // Curva en cero
+                    procesarAnaliticasReales([]);
                     return;
                 }
 
@@ -373,68 +391,69 @@
                     else if (index === 1) medalla = " 🥈";
                     else if (index === 2) medalla = " 🥉";
 
+                    const horaMostrar = obtenerHoraFormateada(jugador);
+                    // Guardamos la hora calculada temporalmente por si no venía del JSON
+                    if (!jugador.hora) jugador.hora = horaMostrar;
+
                     const fila = document.createElement('tr');
                     fila.innerHTML = `
                         <td><strong>#${index + 1}</strong>${medalla}</td>
                         <td>${tokenizeUsername(jugador.username)}</td>
+                        <td class="txt-hora" style="text-align: center;">${horaMostrar} hs</td>
                         <td class="txt-puntos-tabla" style="text-align: right;">${jugador.puntos || 0} pts</td>
                     `;
                     tbody.appendChild(fila);
                 });
 
-                // 📊 LLAMADA CRÍTICA: Computa las métricas usando datos reales
                 procesarAnaliticasReales(listaJugadores);
             });
         }
 
-        // 🧠 MOTOR DE ANALÍTICAS REALES POR MARCAS DE TIEMPO
+        // 🧠 PROCESADOR DE DATOS REALES HORA POR HORA (10h a 20h)
         function procesarAnaliticasReales(jugadores) {
-            // 1. Inicializamos los baldes de horas para la curva real
-            let horas = { h10: 0, h12: 0, h14: 0, h16: 0, h18: 0, h20: 0 };
+            // Inicializamos los 11 baldes fijos hora por hora
+            let curva = { h10: 0, h11: 0, h12: 0, h13: 0, h14: 0, h15: 0, h16: 0, h17: 0, h18: 0, h19: 0, h20: 0 };
             let totalAciertosPerfectos = 0;
 
-            // Suponemos una escala lógica si no hay campo timestamp explícito (distribución analítica)
-            jugadores.forEach((j, idx) => {
-                // Evaluamos rendimiento (Por ejemplo si el puntaje máximo ideal es 50 o 100 puntos)
-                // Ajustá este número al puntaje máximo real de tu juego para calcular la efectividad perfecta
+            jugadores.forEach((j) => {
+                // Cálculo de efectividad (Puntaje ideal de ejemplo >= 50)
                 if (j.puntos >= 50) { 
                     totalAciertosPerfectos++;
                 }
 
-                // Distribución simulada por índice de entrada si el JSON no trae hora del servidor,
-                // o mapeo real si contiene marcas de tiempo. Para asegurar consistencia en vivo:
-                let horaSimulada = 10 + Math.floor((idx / Math.max(jugadores.length, 1)) * 10);
-                if (horaSimulada <= 11) horas.h10++;
-                else if (horaSimulada <= 13) horas.h12++;
-                else if (horaSimulada <= 15) horas.h14++;
-                else if (horaSimulada <= 17) horas.h16++;
-                else if (horaSimulada <= 19) horas.h18++;
-                else horas.h20++;
+                // Leemos el bloque de hora real de participación ("HH:MM")
+                if (j.hora) {
+                    let partes = j.hora.split(':');
+                    let horaEntera = parseInt(partes[0], 10);
+
+                    if (horaEntera === 10) curva.h10++;
+                    else if (horaEntera === 11) curva.h11++;
+                    else if (horaEntera === 12) curva.h12++;
+                    else if (horaEntera === 13) curva.h13++;
+                    else if (horaEntera === 14) curva.h14++;
+                    else if (horaEntera === 15) curva.h15++;
+                    else if (horaEntera === 16) curva.h16++;
+                    else if (horaEntera === 17) curva.h17++;
+                    else if (horaEntera === 18) curva.h18++;
+                    else if (horaEntera === 19) curva.h19++;
+                    else if (horaEntera >= 20) curva.h20++;
+                }
             });
 
-            // Buscamos el pico más alto para escalar las barras al 100% del contenedor visual
-            let maxInscriptosEnUnBloque = Math.max(horas.h10, horas.h12, horas.h14, horas.h16, horas.h18, horas.h20, 1);
+            // Buscamos el pico más alto registrado en una sola hora para escalar visualmente
+            let picoMaximo = Math.max(curva.h10, curva.h11, curva.h12, curva.h13, curva.h14, curva.h15, curva.h16, curva.h17, curva.h18, curva.h19, curva.h20, 1);
 
-            // Renderizamos los valores reales y escalamos la curva dinámicamente
-            document.getElementById('curva-h10').style.height = `${(horas.h10 / maxInscriptosEnUnBloque) * 100}%`;
-            document.getElementById('curva-h10').innerText = horas.h10;
+            // Inyección matemática y estilización dinámica bar por bar
+            const horasMapeadas = ['h10', 'h11', 'h12', 'h13', 'h14', 'h15', 'h16', 'h17', 'h18', 'h19', 'h20'];
+            horasMapeadas.forEach((h) => {
+                let elementoBarra = document.getElementById(`curva-${h}`);
+                if (elementoBarra) {
+                    elementoBarra.style.height = `${(curva[h] / picoMaximo) * 100}%`;
+                    elementoBarra.innerText = curva[h];
+                }
+            });
 
-            document.getElementById('curva-h12').style.height = `${(horas.h12 / maxInscriptosEnUnBloque) * 100}%`;
-            document.getElementById('curva-h12').innerText = horas.h12;
-
-            document.getElementById('curva-h14').style.height = `${(horas.h14 / maxInscriptosEnUnBloque) * 100}%`;
-            document.getElementById('curva-h14').innerText = horas.h14;
-
-            document.getElementById('curva-h16').style.height = `${(horas.h16 / maxInscriptosEnUnBloque) * 100}%`;
-            document.getElementById('curva-h16').innerText = horas.h16;
-
-            document.getElementById('curva-h18').style.height = `${(horas.h18 / maxInscriptosEnUnBloque) * 100}%`;
-            document.getElementById('curva-h18').innerText = horas.h18;
-
-            document.getElementById('curva-h20').style.height = `${(horas.h20 / maxInscriptosEnUnBloque) * 100}%`;
-            document.getElementById('curva-h20').innerText = horas.h20;
-
-            // 2. Calculamos los porcentajes de rendimiento real
+            // Actualización de barras de efectividad general
             let total = jugadores.length || 1;
             let pctAlto = Math.round((totalAciertosPerfectos / total) * 100);
             let pctBajo = 100 - pctAlto;

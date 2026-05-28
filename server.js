@@ -2,11 +2,18 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const mongoose = require('mongoose');
+const fs = require('fs');
+const path = require('path'); // Importante para rutas
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
 app.use(express.static('public'));
+
+// --- CARGA DE PREGUNTAS (Al iniciar) ---
+// path.join(__dirname, ...) asegura que busque el archivo en la misma carpeta que server.js
+const preguntasTodo = JSON.parse(fs.readFileSync(path.join(__dirname, 'preguntas.json'), 'utf8'));
 
 // --- CONFIGURACIÓN MONGODB ---
 const MONGO_URI = process.env.MONGO_URI; 
@@ -46,8 +53,6 @@ io.on('connection', (socket) => {
             jugador.combo = 0;
             jugador.puntosRondaActual = 0;
             jugador.socketId = socket.id;
-            // Solo actualizamos hora si no existía previamente
-            if (!jugador.hora) jugador.hora = horaActual;
             await jugador.save();
         } else {
             jugador = new Jugador({
@@ -71,7 +76,6 @@ io.on('connection', (socket) => {
         const jugador = await Jugador.findOne({ username: socket.usernameClean });
         if (!jugador) return;
 
-        // Lógica de juego igual a la original
         if (jugador.vidas <= 0 || jugador.respondidas.length >= 10) {
             socket.emit(jugador.vidas <= 0 ? 'game_over' : 'game_completed', { 
                 puntos: jugador.puntosRondaActual 
@@ -79,9 +83,7 @@ io.on('connection', (socket) => {
             return;
         }
 
-        // Nota: Asegúrate de tener las preguntas cargadas en memoria como antes
-        const fs = require('fs');
-        const preguntasTodo = JSON.parse(fs.readFileSync('preguntas.json', 'utf8'));
+        // Usamos la variable 'preguntasTodo' cargada arriba
         const disponibles = preguntasTodo.filter(p => !jugador.respondidas.includes(p.id));
         
         if (disponibles.length === 0) return;
@@ -101,8 +103,7 @@ io.on('connection', (socket) => {
         const jugador = await Jugador.findOne({ username: socket.usernameClean });
         if (!jugador) return;
 
-        const fs = require('fs');
-        const preguntasTodo = JSON.parse(fs.readFileSync('preguntas.json', 'utf8'));
+        // Usamos 'preguntasTodo' global
         const pregunta = preguntasTodo.find(p => p.id === preguntaId);
 
         if (respuesta === "__TIEMPO_AGOTADO__") {
@@ -116,7 +117,6 @@ io.on('connection', (socket) => {
             if (esCorrecta) {
                 jugador.respondidas.push(preguntaId);
                 jugador.combo += 1;
-                // Lógica de puntos original
                 let puntosPregunta = (intento === 1 ? 10 : 5) + Math.max(0, Math.round(15 * Math.log(20 / (tiempoEmpleado + 1))));
                 let mult = (jugador.combo >= 12 ? 10 : (jugador.combo >= 9 ? 6 : (jugador.combo >= 6 ? 4 : (jugador.combo === 3 ? 2 : 1))));
                 jugador.puntosRondaActual += puntosPregunta * mult;

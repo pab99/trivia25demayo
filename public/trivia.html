@@ -13,22 +13,31 @@
         const CICLOS_SABIAS_QUE = 2; 
         let contadorCiclosSabiasQue = 0;
 
-        // 🚀 PASO 1: Arrancamos la interfaz apenas el HTML esté firme en el navegador
-        document.addEventListener("DOMContentLoaded", () => {
-            console.log("Estructura base lista. Iniciando interfaz de forma segura...");
-            
-            // Dibujamos el estado inicial ("Esperando patriotas...")
-            dibujarPaginaRanking();
-            
-            // Arrancamos el reloj de las pantallas (Aeropuerto) pase lo que pase
-            setInterval(ejecutarRotacion, 10000);
-            
-            // Intentamos generar el QR e iniciar sockets de forma asíncrona de fondo
-            inicializarQrSeguro();
-            inicializarSocketsSeguros();
-        });
+        // 🚀 MOTOR DE ARRANQUE SEGURO: Revisa el DOM hasta que los elementos existan de verdad
+        const iniciarRastreadorUI = setInterval(() => {
+            const contenedorLista = document.getElementById('lista-leaderboard');
+            const contenedorQR = document.getElementById("contenedor-qr");
 
-        // 🔒 PASO 2: Intentar armar el QR sin bloquear la renderización
+            // Cooperamos: Esperamos a que existan ambos elementos en la pantalla
+            if (contenedorLista && contenedorQR) {
+                console.log("¡Éxito! Elementos del DOM encontrados. Iniciando componentes...");
+                clearInterval(iniciarRastreadorUI); // Frenamos el rastreador
+
+                // 1. Dibujamos el estado inicial inmediatamente
+                dibujarPaginaRanking();
+
+                // 2. Activamos la rotación de pantallas (Cada 10 segundos)
+                setInterval(ejecutarRotacion, 10000);
+
+                // 3. Lanzamos los procesos de conectividad de fondo
+                inicializarQrSeguro();
+                inicializarSocketsSeguros();
+            } else {
+                console.log("Esperando que los contenedores HTML se rendericen...");
+            }
+        }, 200); // Revisa cada 200 milisegundos (un parpadeo)
+
+        // 🔒 INTENTAR ARMAR EL QR CUANDO LA LIBRERÍA ESTÉ LISTA
         function inicializarQrSeguro() {
             let intentosQR = 0;
             const intervaloQR = setInterval(() => {
@@ -45,19 +54,19 @@
                             colorLight : "#ffffff",
                             correctLevel : QRCode.CorrectLevel.H
                         });
-                        console.log("Librería QRCode detectada y elemento encontrado. ¡QR Generado!");
+                        console.log("¡QR Generado exitosamente!");
                         clearInterval(intervaloQR);
                     } catch (err) {
                         console.error("Error al renderizar el QR:", err);
                     }
                 } else if (intentosQR > 20) {
-                    console.error("No se pudo cargar la librería de QR o no se encontró el contenedor.");
+                    console.error("No se detectó la librería externa de QRCode.");
                     clearInterval(intervaloQR);
                 }
             }, 500);
         }
 
-        // 🔒 PASO 3: Intentar conectar Sockets en segundo plano
+        // 🔒 INTENTAR CONECTAR SOCKETS CUANDO LA LIBRERÍA ESTÉ LISTA
         function inicializarSocketsSeguros() {
             let intentosSocket = 0;
             const intervaloSocket = setInterval(() => {
@@ -65,10 +74,10 @@
                 if (typeof io !== 'undefined') {
                     try {
                         socket = io();
-                        console.log("Librería Socket.io detectada. Conectando al servidor...");
+                        console.log("Conectando Sockets al servidor...");
 
                         socket.on('connect', () => {
-                            console.log("¡Conectado! Solicitando historial permanente...");
+                            console.log("¡Sockets Conectados! Solicitando ranking...");
                             socket.emit('pedir_ranking_dashboard'); 
                         });
 
@@ -91,19 +100,16 @@
                         console.error("Error en Sockets:", err);
                     }
                 } else if (intentosSocket > 20) {
-                    console.error("No se pudo conectar a los sockets del servidor.");
+                    console.error("No se pudo conectar con Socket.io.");
                     clearInterval(intervaloSocket);
                 }
             }, 500);
         }
 
-        // 🏆 FUNCIÓN REPARADA: Busca el contenedor en tiempo real cuando se la llama
+        // 🏆 FUNCIÓN DE RENDER: Dibuja las páginas del ranking
         function dibujarPaginaRanking() {
             const contenedorLista = document.getElementById('lista-leaderboard');
-            if (!contenedorLista) {
-                console.warn("Buscando 'lista-leaderboard' pero no se encontró en el DOM todavía.");
-                return;
-            }
+            if (!contenedorLista) return;
 
             contenedorLista.innerHTML = ""; 
 

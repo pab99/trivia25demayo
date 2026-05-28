@@ -1,11 +1,7 @@
 <script>
-        // variables globales independientes
+        // Variables globales de conectividad y memoria
         let socket;
-        const contenedorLista = document.getElementById('lista-leaderboard');
-        
-        // Memoria local para el total de jugadores
         let cacheJugadores = []; 
-
         const urlTrivia = window.location.origin; 
         
         // 💡 CONFIGURACIÓN DEL MOTOR DE AEROPUERTO
@@ -17,9 +13,9 @@
         const CICLOS_SABIAS_QUE = 2; 
         let contadorCiclosSabiasQue = 0;
 
-        // 🚀 PASO 1: Arrancamos el diseño y la rotación DE INMEDIATO, sin esperar a nadie
+        // 🚀 PASO 1: Arrancamos la interfaz apenas el HTML esté firme en el navegador
         document.addEventListener("DOMContentLoaded", () => {
-            console.log("Estructura base lista. Iniciando interfaz...");
+            console.log("Estructura base lista. Iniciando interfaz de forma segura...");
             
             // Dibujamos el estado inicial ("Esperando patriotas...")
             dibujarPaginaRanking();
@@ -27,19 +23,21 @@
             // Arrancamos el reloj de las pantallas (Aeropuerto) pase lo que pase
             setInterval(ejecutarRotacion, 10000);
             
-            // Intentamos generar el QR e iniciar sockets de forma asíncrona y aislada
+            // Intentamos generar el QR e iniciar sockets de forma asíncrona de fondo
             inicializarQrSeguro();
             inicializarSocketsSeguros();
         });
 
-        // 🔒 PASO 2: Intentar armar el QR sin bloquear el resto de la pantalla
+        // 🔒 PASO 2: Intentar armar el QR sin bloquear la renderización
         function inicializarQrSeguro() {
             let intentosQR = 0;
             const intervaloQR = setInterval(() => {
                 intentosQR++;
-                if (typeof QRCode !== 'undefined') {
+                const contenedorQR = document.getElementById("contenedor-qr");
+                
+                if (typeof QRCode !== 'undefined' && contenedorQR) {
                     try {
-                        new QRCode(document.getElementById("contenedor-qr"), {
+                        new QRCode(contenedorQR, {
                             text: urlTrivia,
                             width: 260,
                             height: 260,
@@ -47,19 +45,19 @@
                             colorLight : "#ffffff",
                             correctLevel : QRCode.CorrectLevel.H
                         });
-                        console.log("Librería QRCode detectada. ¡QR Generado exitosamente!");
-                        clearInterval(intervaloQR); // QR generado, salimos del bucle
+                        console.log("Librería QRCode detectada y elemento encontrado. ¡QR Generado!");
+                        clearInterval(intervaloQR);
                     } catch (err) {
                         console.error("Error al renderizar el QR:", err);
                     }
-                } else if (intentosQR > 10) {
-                    console.error("No se pudo cargar la librería de QR tras varios intentos.");
+                } else if (intentosQR > 20) {
+                    console.error("No se pudo cargar la librería de QR o no se encontró el contenedor.");
                     clearInterval(intervaloQR);
                 }
-            }, 500); // Reintenta cada medio segundo de fondo
+            }, 500);
         }
 
-        // 🔒 PASO 3: Intentar conectar Sockets en segundo plano sin colgar la UI
+        // 🔒 PASO 3: Intentar conectar Sockets en segundo plano
         function inicializarSocketsSeguros() {
             let intentosSocket = 0;
             const intervaloSocket = setInterval(() => {
@@ -88,19 +86,25 @@
                             }
                         });
 
-                        clearInterval(intervaloSocket); // Conexión establecida, salimos del bucle
+                        clearInterval(intervaloSocket);
                     } catch (err) {
                         console.error("Error en Sockets:", err);
                     }
-                } else if (intentosSocket > 10) {
+                } else if (intentosSocket > 20) {
                     console.error("No se pudo conectar a los sockets del servidor.");
                     clearInterval(intervaloSocket);
                 }
-            }, 500); // Reintenta cada medio segundo de fondo
+            }, 500);
         }
 
-        // Función encargada de dibujar el bloque de 10 usuarios correspondiente
+        // 🏆 FUNCIÓN REPARADA: Busca el contenedor en tiempo real cuando se la llama
         function dibujarPaginaRanking() {
+            const contenedorLista = document.getElementById('lista-leaderboard');
+            if (!contenedorLista) {
+                console.warn("Buscando 'lista-leaderboard' pero no se encontró en el DOM todavía.");
+                return;
+            }
+
             contenedorLista.innerHTML = ""; 
 
             if (!cacheJugadores || cacheJugadores.length === 0) {
@@ -160,6 +164,9 @@
         ];
 
         function mostrarDatoCuriosoUI() {
+            const contenedorLista = document.getElementById('lista-leaderboard');
+            if (!contenedorLista) return;
+
             const datoActual = datosCuriosos[indiceCurioso];
             contenedorLista.innerHTML = `
                 <div class="bloque-sabias-que">
@@ -201,4 +208,3 @@
             }
         }
     </script>
-    

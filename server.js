@@ -1,74 +1,65 @@
-const socket = io(); // Conexión al servidor
-let username = "";
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const mongoose = require('mongoose');
+const fs = require('fs');
+const path = require('path');
 
-// 1. Registro inicial
-function joinGame() {
-    const input = document.getElementById('usernameInput');
-    if (!input.value) return alert("Ingresa un nombre");
-    username = input.value;
-    socket.emit('join_game', username);
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('gameScreen').style.display = 'block';
-    solicitarPregunta();
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server); // Esta es la configuración correcta en el servidor
+
+app.use(express.static('public'));
+
+// --- CARGA DE PREGUNTAS ---
+let preguntasTodo = [];
+try {
+    const ruta = path.join(__dirname, 'preguntas.json');
+    preguntasTodo = JSON.parse(fs.readFileSync(ruta, 'utf8'));
+    console.log("✅ Preguntas cargadas:", preguntasTodo.length);
+} catch (err) {
+    console.error("❌ ERROR CARGANDO PREGUNTAS:", err.message);
 }
 
-// 2. Pedir pregunta al servidor
-function solicitarPregunta() {
-    console.log("Solicitando pregunta al servidor...");
-    socket.emit('get_pregunta');
-}
+// --- MONGODB ---
+mongoose.connect(process.env.MONGO_URI);
 
-// 3. RECIBIR PREGUNTA (El punto crítico)
-socket.on('pregunta_data', (data) => {
-    console.log("¡Pregunta recibida!", data);
-    ocultarCargando(); // Asegúrate de tener esta función para quitar el mensaje de "Cargando"
-    renderizarPregunta(data);
-});
+const Jugador = mongoose.model('Jugador', new mongoose.Schema({
+    username: String,
+    puntos: Number,
+    puntosRondaActual: Number,
+    vidas: Number,
+    respondidas: Array,
+    combo: Number,
+    socketId: String,
+    hora: String
+}, { collection: 'ranking' }));
 
-// 4. Manejo de resultados
-socket.on('resultado_respuesta', (data) => {
-    if (data.correcta) {
-        alert("¡Correcto! Puntos: " + data.puntos);
-    } else {
-        alert("Incorrecto. Vidas restantes: " + data.vidas);
-    }
-    // Después de un tiempo, pedimos la siguiente
-    setTimeout(solicitarPregunta, 1000);
-});
+// --- SOCKETS ---
+io.on('connection', (socket) => {
+    console.log('Cliente conectado:', socket.id);
 
-// 5. Pantallas finales
-socket.on('game_over', (data) => {
-    alert("Juego terminado. Puntos totales: " + data.puntos);
-    location.reload();
-});
-
-socket.on('game_completed', (data) => {
-    alert("¡Completaste la trivia! Puntos: " + data.puntos);
-    location.reload();
-});
-
-// --- FUNCIONES DE INTERFAZ ---
-
-function renderizarPregunta(data) {
-    const container = document.getElementById('preguntaContainer');
-    container.innerHTML = `
-        <h3>${data.pregunta}</h3>
-        ${data.opciones.map(op => `
-            <button onclick="enviarRespuesta('${data.id}', '${op}')">${op}</button>
-        `).join('')}
-    `;
-}
-
-function enviarRespuesta(preguntaId, respuesta) {
-    const tiempo = 0; // Aquí deberías calcular el tiempo si lo usas
-    socket.emit('enviar_respuesta', { 
-        preguntaId, 
-        respuesta, 
-        intento: 1, 
-        tiempoEmpleado: tiempo 
+    socket.on('join_game', async (username) => {
+        socket.usernameClean = username.toLowerCase().replace('@', '').trim();
+        let jugador = await Jugador.findOne({ username: socket.usernameClean });
+        if (!jugador) {
+            jugador = new Jugador({ username: socket.usernameClean, puntos: 0, puntosRondaActual: 0, vidas: 3, respondidas: [], combo: 0, socketId: socket.id, hora: new Date().toLocaleTimeString() });
+            await jugador.save();
+        }
+        io.emit('update_ranking', await Jugador.find().sort({ puntos: -1 }));
     });
-}
 
-function ocultarCargando() {
-    document.getElementById('loadingMessage').style.display = 'none';
-}
+    socket.on('get_pregunta', async () => {
+        const jugador = await Jugador.findOne({ username: socket.usernameClean });
+        if (!jugador || jugador.vidas <= 0) return;
+        
+        const disponibles = preguntasTodo.filter(p => !jugador.respondidas.includes(p.id));
+        if (disponibles.length === 0) return;
+
+        const p = disponibles[Math.floor(Math.random() * disponibles.length)];
+        socket.emit('pregunta_data', { id: p.id, pregunta: p.pregunta, opciones: [p.correcta, ...p.incorrectas].sort(() => Math.random() - 0.5), numeroPregunta: jugador.respondidas.length + 1 });
+    });
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`Servidor activo en puerto ${PORT}`));

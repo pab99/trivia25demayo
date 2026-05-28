@@ -1,5 +1,5 @@
 <script>
-        // Declaramos las variables globales pero vacías para que estén disponibles
+        // variables globales independientes
         let socket;
         const contenedorLista = document.getElementById('lista-leaderboard');
         
@@ -12,72 +12,94 @@
         const USUARIOS_POR_PAGINA = 10;
         let paginaActual = 0;
         let indiceCurioso = 0;
-        let estadoActual = "ranking"; // Puede ser: "ranking" o "sabiasque"
+        let estadoActual = "ranking"; 
         
         const CICLOS_SABIAS_QUE = 2; 
         let contadorCiclosSabiasQue = 0;
 
-        // 🔒 BLINDAJE TOTAL: Esperamos a que la página, imágenes y LIBRERÍAS externas carguen por completo
-        window.onload = function() {
+        // 🚀 PASO 1: Arrancamos el diseño y la rotación DE INMEDIATO, sin esperar a nadie
+        document.addEventListener("DOMContentLoaded", () => {
+            console.log("Estructura base lista. Iniciando interfaz...");
             
-            // 1. GENERACIÓN SEGURA DEL QR
-            try {
-                if (typeof QRCode !== 'undefined') {
-                    new QRCode(document.getElementById("contenedor-qr"), {
-                        text: urlTrivia,
-                        width: 260,
-                        height: 260,
-                        colorDark : "#0d2c54",
-                        colorLight : "#ffffff",
-                        correctLevel : QRCode.CorrectLevel.H
-                    });
-                    console.log("Librería QRCode cargada. QR generado con éxito.");
-                } else {
-                    console.error("CRÍTICO: La librería de QRCode no se pudo cargar desde CDNJS.");
-                }
-            } catch (qrError) {
-                console.error("Error al generar el código QR:", qrError);
-            }
-
-            // 2. CONEXIÓN SEGURA DE SOCKETS
-            try {
-                if (typeof io !== 'undefined') {
-                    socket = io();
-                    console.log("Librería Socket.io detectada con éxito. Conectando...");
-
-                    // PEDIDO INICIAL CLÁSICO
-                    socket.on('connect', () => {
-                        console.log("Pantalla de Ranking conectada. Solicitando historial permanente...");
-                        socket.emit('pedir_ranking_dashboard'); 
-                    });
-
-                    // ESCUCHAS DE SOCKET
-                    socket.on('update_ranking', (listaJugadores) => {
-                        cacheJugadores = listaJugadores;
-                        if (estadoActual === "ranking") {
-                            dibujarPaginaRanking();
-                        }
-                    });
-
-                    socket.on('data_ranking_dashboard', (listaJugadores) => {
-                        cacheJugadores = listaJugadores;
-                        if (estadoActual === "ranking") {
-                            dibujarPaginaRanking();
-                        }
-                    });
-                } else {
-                    console.error("CRÍTICO: La librería /socket.io/socket.io.js no se pudo cargar desde el servidor.");
-                }
-            } catch (socketError) {
-                console.error("Error en la conexión inicial de sockets:", socketError);
-            }
-
-            // 3. ARRANCAR EL RELOJ DE ROTACIÓN (Aeropuerto)
-            // Se ejecuta recién cuando todo el entorno visual y de datos es estable
+            // Dibujamos el estado inicial ("Esperando patriotas...")
+            dibujarPaginaRanking();
+            
+            // Arrancamos el reloj de las pantallas (Aeropuerto) pase lo que pase
             setInterval(ejecutarRotacion, 10000);
-        };
+            
+            // Intentamos generar el QR e iniciar sockets de forma asíncrona y aislada
+            inicializarQrSeguro();
+            inicializarSocketsSeguros();
+        });
 
-        // Función que dibuja EXCLUSIVAMENTE el bloque de 10 usuarios correspondiente
+        // 🔒 PASO 2: Intentar armar el QR sin bloquear el resto de la pantalla
+        function inicializarQrSeguro() {
+            let intentosQR = 0;
+            const intervaloQR = setInterval(() => {
+                intentosQR++;
+                if (typeof QRCode !== 'undefined') {
+                    try {
+                        new QRCode(document.getElementById("contenedor-qr"), {
+                            text: urlTrivia,
+                            width: 260,
+                            height: 260,
+                            colorDark : "#0d2c54",
+                            colorLight : "#ffffff",
+                            correctLevel : QRCode.CorrectLevel.H
+                        });
+                        console.log("Librería QRCode detectada. ¡QR Generado exitosamente!");
+                        clearInterval(intervaloQR); // QR generado, salimos del bucle
+                    } catch (err) {
+                        console.error("Error al renderizar el QR:", err);
+                    }
+                } else if (intentosQR > 10) {
+                    console.error("No se pudo cargar la librería de QR tras varios intentos.");
+                    clearInterval(intervaloQR);
+                }
+            }, 500); // Reintenta cada medio segundo de fondo
+        }
+
+        // 🔒 PASO 3: Intentar conectar Sockets en segundo plano sin colgar la UI
+        function inicializarSocketsSeguros() {
+            let intentosSocket = 0;
+            const intervaloSocket = setInterval(() => {
+                intentosSocket++;
+                if (typeof io !== 'undefined') {
+                    try {
+                        socket = io();
+                        console.log("Librería Socket.io detectada. Conectando al servidor...");
+
+                        socket.on('connect', () => {
+                            console.log("¡Conectado! Solicitando historial permanente...");
+                            socket.emit('pedir_ranking_dashboard'); 
+                        });
+
+                        socket.on('update_ranking', (listaJugadores) => {
+                            cacheJugadores = listaJugadores;
+                            if (estadoActual === "ranking") {
+                                dibujarPaginaRanking();
+                            }
+                        });
+
+                        socket.on('data_ranking_dashboard', (listaJugadores) => {
+                            cacheJugadores = listaJugadores;
+                            if (estadoActual === "ranking") {
+                                dibujarPaginaRanking();
+                            }
+                        });
+
+                        clearInterval(intervaloSocket); // Conexión establecida, salimos del bucle
+                    } catch (err) {
+                        console.error("Error en Sockets:", err);
+                    }
+                } else if (intentosSocket > 10) {
+                    console.error("No se pudo conectar a los sockets del servidor.");
+                    clearInterval(intervaloSocket);
+                }
+            }, 500); // Reintenta cada medio segundo de fondo
+        }
+
+        // Función encargada de dibujar el bloque de 10 usuarios correspondiente
         function dibujarPaginaRanking() {
             contenedorLista.innerHTML = ""; 
 
@@ -86,4 +108,97 @@
                 return;
             }
 
-            const inicio = paginaActual * USUARIOS_POR
+            const inicio = paginaActual * USUARIOS_POR_PAGINA;
+            const fin = inicio + USUARIOS_POR_PAGINA;
+            const subLista = cacheJugadores.slice(inicio, fin);
+
+            subLista.forEach((jugador, subIndex) => {
+                const indexAbsoluto = inicio + subIndex; 
+                
+                let clasePuesto = "";
+                let medalla = "";
+                
+                if (indexAbsoluto === 0) { clasePuesto = "puesto-1"; medalla = "🥇 "; }
+                else if (indexAbsoluto === 1) { clasePuesto = "puesto-2"; medalla = "🥈 "; }
+                else if (indexAbsoluto === 2) { clasePuesto = "puesto-3"; medalla = "🥉 "; }
+
+                const fila = document.createElement('div');
+                fila.className = `fila-ranking ${clasePuesto}`;
+                fila.innerHTML = `
+                    <div class="izquierda-bloque">
+                        <span class="numero-puesto">${medalla}#${indexAbsoluto + 1}</span>
+                        <span class="nombre-usuario">@${jugador.username || 'anonimo'}</span>
+                    </div>
+                    <span class="puntos-usuario">${jugador.puntos || 0} pts</span>
+                `;
+                contenedorLista.appendChild(fila);
+            });
+        }
+
+        // BANCO DE DATOS CURIOSOS INTERNO
+        const datosCuriosos = [
+            {
+                pregunta: "¿Quién fue el miembro más joven de la Primera Junta?",
+                explicacion: "¡Juan Larrea! Tenía solo 27 años cuando asumió como vocal el 25 de mayo de 1810."
+            },
+            {
+                pregunta: "¿El sol de la bandera ya existía en la Revolución de Mayo?",
+                explicacion: "No, el 'Sol de Mayo' se adoptó recién en 1813. Está inspirado en el dios del sol Inca, Inti."
+            },
+            {
+                pregunta: "¿Realmente se repartieron cintas celestes y blancas?",
+                explicacion: "Los historiadores afirman que en realidad eran cintas blancas (unión) y rojas (guerra), o retratos del rey Fernando VII."
+            },
+            {
+                pregunta: "¿Hizo buen tiempo aquel 25 de mayo?",
+                explicacion: "La tradición del 'Sol de Mayo' es literal: los registros confirman que el día estuvo lluvioso, frío y muy nublado."
+            },
+            {
+                pregunta: "¿Dónde se reunía en secreto la sociedad patriótica antes de la revolución?",
+                explicacion: "Se juntaban en la famosa Jabonería de Vieytes. Era el búnker conspirativo camuflado como negocio."
+            }
+        ];
+
+        function mostrarDatoCuriosoUI() {
+            const datoActual = datosCuriosos[indiceCurioso];
+            contenedorLista.innerHTML = `
+                <div class="bloque-sabias-que">
+                    <div class="titulo-sabiasque">💡 ¿Sabías que...?</div>
+                    <div class="texto-pregunta">${datoActual.pregunta}</div>
+                    <div class="texto-explicacion">${datoActual.explicacion}</div>
+                </div>
+            `;
+            indiceCurioso = (indiceCurioso + 1) % datosCuriosos.length;
+        }
+
+        // MÁQUINA DE ESTADOS ASÍNCRONA CADA 10 SEGUNDOS (Lógica de Aeropuerto)
+        function ejecutarRotacion() {
+            const tituloPrincipal = document.getElementById('titulo-principal');
+            const totalPaginas = Math.ceil(cacheJugadores.length / USUARIOS_POR_PAGINA) || 1;
+
+            if (estadoActual === "ranking") {
+                paginaActual++;
+
+                if (paginaActual < totalPaginas) {
+                    if (tituloPrincipal) tituloPrincipal.innerText = `Gran Trivia de Mayo (${paginaActual + 1}/${totalPaginas})`;
+                    dibujarPaginaRanking();
+                } else {
+                    estadoActual = "sabiasque";
+                    contadorCiclosSabiasQue = 1;
+                    if (tituloPrincipal) tituloPrincipal.innerText = "Dato Histórico";
+                    mostrarDatoCuriosoUI();
+                }
+            } else {
+                if (contadorCiclosSabiasQue < CICLOS_SABIAS_QUE) {
+                    contadorCiclosSabiasQue++;
+                    mostrarDatoCuriosoUI();
+                } else {
+                    estadoActual = "ranking";
+                    paginaActual = 0;
+                    if (tituloPrincipal) tituloPrincipal.innerText = totalPaginas > 1 ? `Gran Trivia de Mayo (1/${totalPaginas})` : "Gran Trivia de Mayo";
+                    dibujarPaginaRanking();
+                }
+            }
+        }
+    </script>
+    

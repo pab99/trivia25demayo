@@ -11,13 +11,12 @@ const io = new Server(server);
 
 app.use(express.static('public'));
 
-// 1. Conexión MongoDB blindada
-const MONGO_URI = process.env.MONGO_URI;
+// --- CONFIGURACIÓN MONGODB ---
+const MONGO_URI = process.env.MONGO_URI; 
 mongoose.connect(MONGO_URI)
     .then(() => console.log("✅ Conectado a MongoDB"))
-    .catch(err => console.error("❌ ERROR CONEXIÓN MONGODB:", err));
+    .catch(err => console.error("❌ Error de conexión MongoDB:", err));
 
-// 2. Esquema y Modelo (asegurando el nombre de la colección)
 const JugadorSchema = new mongoose.Schema({
     username: { type: String, unique: true },
     puntos: Number,
@@ -27,20 +26,11 @@ const JugadorSchema = new mongoose.Schema({
     combo: Number,
     socketId: String,
     hora: String
-}, { collection: 'ranking' }); 
+}, { collection: 'ranking' });
 
 const Jugador = mongoose.model('Jugador', JugadorSchema);
 
-// 3. Funciones de ayuda
-async function enviarRanking() {
-    try {
-        const lista = await Jugador.find().sort({ puntos: -1 });
-        io.emit('update_ranking', lista);
-        io.emit('data_ranking_dashboard', lista);
-    } catch (err) { console.error("Error al enviar ranking:", err); }
-}
-
-// 4. Lógica de Sockets
+// --- LÓGICA DE SOCKETS ---
 io.on('connection', (socket) => {
     console.log('Dispositivo conectado:', socket.id);
     enviarRanking();
@@ -59,6 +49,7 @@ io.on('connection', (socket) => {
             jugador.combo = 0;
             jugador.puntosRondaActual = 0;
             jugador.socketId = socket.id;
+            if (!jugador.hora) jugador.hora = horaActual;
             await jugador.save();
         } else {
             jugador = new Jugador({
@@ -87,6 +78,7 @@ io.on('connection', (socket) => {
             return;
         }
 
+        // Lógica original de carga de preguntas
         const preguntasTodo = JSON.parse(fs.readFileSync(path.join(__dirname, 'preguntas.json'), 'utf8'));
         const disponibles = preguntasTodo.filter(p => !jugador.respondidas.includes(p.id));
         
@@ -139,6 +131,12 @@ io.on('connection', (socket) => {
         enviarRanking();
     });
 });
+
+async function enviarRanking() {
+    const lista = await Jugador.find().sort({ puntos: -1 });
+    io.emit('update_ranking', lista);
+    io.emit('data_ranking_dashboard', lista);
+}
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Servidor activo en puerto ${PORT}`));

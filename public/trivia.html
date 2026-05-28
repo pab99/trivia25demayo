@@ -1,5 +1,6 @@
 <script>
-        const socket = io();
+        // Declaramos la variable del socket arriba pero vacía
+        let socket;
         const contenedorLista = document.getElementById('lista-leaderboard');
         
         // Memoria local para el total de jugadores
@@ -16,33 +17,52 @@
             correctLevel : QRCode.CorrectLevel.H
         });
 
-        // PEDIDO INICIAL CLÁSICO
-        socket.on('connect', () => {
-            console.log("Pantalla de Ranking conectada. Solicitando historial permanente...");
-            socket.emit('pedir_ranking_dashboard'); 
-        });
-
-        // ESCUCHAS DE SOCKET (Solo guardan la data fresca en memoria)
-        socket.on('update_ranking', (listaJugadores) => {
-            cacheJugadores = listaJugadores;
-            // Si justo estamos en modo ranking, refrescamos la página actual en tiempo real
-            if (estadoActual === "ranking") {
-                dibujarPaginaRanking();
-            }
-        });
-
-        socket.on('data_ranking_dashboard', (listaJugadores) => {
-            cacheJugadores = listaJugadores;
-            if (estadoActual === "ranking") {
-                dibujarPaginaRanking();
-            }
-        });
-
         // 💡 CONFIGURACIÓN DEL MOTOR DE AEROPUERTO
         const USUARIOS_POR_PAGINA = 10;
         let paginaActual = 0;
         let indiceCurioso = 0;
         let estadoActual = "ranking"; // Puede ser: "ranking" o "sabiasque"
+        
+        const CICLOS_SABIAS_QUE = 2; 
+        let contadorCiclosSabiasQue = 0;
+
+        // 🔒 BLINDAJE CRÍTICO: Esperamos a que TODA la página y librerías estén listas antes de conectar
+        window.onload = function() {
+            try {
+                if (typeof io !== 'undefined') {
+                    socket = io();
+                    console.log("Librería Socket.io detectada con éxito. Conectando...");
+
+                    // PEDIDO INICIAL CLÁSICO
+                    socket.on('connect', () => {
+                        console.log("Pantalla de Ranking conectada. Solicitando historial permanente...");
+                        socket.emit('pedir_ranking_dashboard'); 
+                    });
+
+                    // ESCUCHAS DE SOCKET
+                    socket.on('update_ranking', (listaJugadores) => {
+                        cacheJugadores = listaJugadores;
+                        if (estadoActual === "ranking") {
+                            dibujarPaginaRanking();
+                        }
+                    });
+
+                    socket.on('data_ranking_dashboard', (listaJugadores) => {
+                        cacheJugadores = listaJugadores;
+                        if (estadoActual === "ranking") {
+                            dibujarPaginaRanking();
+                        }
+                    });
+                } else {
+                    console.error("CRÍTICO: La librería /socket.io/socket.io.js no se pudo cargar desde el servidor.");
+                }
+            } catch (error) {
+                console.error("Error en la conexión inicial de sockets:", error);
+            }
+
+            // Arrancar el reloj de rotación de pantallas RECIÉN cuando cargó todo
+            setInterval(ejecutarRotacion, 10000);
+        };
 
         // Función que dibuja EXCLUSIVAMENTE el bloque de 10 usuarios correspondiente
         function dibujarPaginaRanking() {
@@ -53,13 +73,11 @@
                 return;
             }
 
-            // Calculamos los índices de corte para la página actual
             const inicio = paginaActual * USUARIOS_POR_PAGINA;
             const fin = inicio + USUARIOS_POR_PAGINA;
             const subLista = cacheJugadores.slice(inicio, fin);
 
             subLista.forEach((jugador, subIndex) => {
-                // El índice real absoluto del jugador en la tabla global
                 const indexAbsoluto = inicio + subIndex; 
                 
                 let clasePuesto = "";
@@ -106,47 +124,45 @@
             }
         ];
 
+        function mostrarDatoCuriosoUI() {
+            const datoActual = datosCuriosos[indiceCurioso];
+            contenedorLista.innerHTML = `
+                <div class="bloque-sabias-que">
+                    <div class="titulo-sabiasque">💡 ¿Sabías que...?</div>
+                    <div class="texto-pregunta">${datoActual.pregunta}</div>
+                    <div class="texto-explicacion">${datoActual.explicacion}</div>
+                </div>
+            `;
+            indiceCurioso = (indiceCurioso + 1) % datosCuriosos.length;
+        }
+
         // MÁQUINA DE ESTADOS ASÍNCRONA CADA 10 SEGUNDOS (Lógica de Aeropuerto)
         function ejecutarRotacion() {
             const tituloPrincipal = document.getElementById('titulo-principal');
-            
-            // Calculamos cuántas páginas totales de ranking tenemos en base a los usuarios reales
             const totalPaginas = Math.ceil(cacheJugadores.length / USUARIOS_POR_PAGINA) || 1;
 
             if (estadoActual === "ranking") {
-                // Avanzamos a la siguiente página de aeropuerto
                 paginaActual++;
 
                 if (paginaActual < totalPaginas) {
-                    // Hay más páginas de usuarios para mostrar, las renderizamos
                     if (tituloPrincipal) tituloPrincipal.innerText = `Gran Trivia de Mayo (${paginaActual + 1}/${totalPaginas})`;
                     dibujarPaginaRanking();
                 } else {
-                    // Ya pasaron todas las pantallas de usuarios, toca cambiar al Sabías que...
                     estadoActual = "sabiasque";
+                    contadorCiclosSabiasQue = 1;
                     if (tituloPrincipal) tituloPrincipal.innerText = "Dato Histórico";
-                    
-                    const datoActual = datosCuriosos[indiceCurioso];
-                    contenedorLista.innerHTML = `
-                        <div class="bloque-sabias-que">
-                            <div class="titulo-sabiasque">💡 ¿Sabías que...?</div>
-                            <div class="texto-pregunta">${datoActual.pregunta}</div>
-                            <div class="texto-explicacion">${datoActual.explicacion}</div>
-                        </div>
-                    `;
-                    
-                    indiceCurioso = (indiceCurioso + 1) % datosCuriosos.length;
+                    mostrarDatoCuriosoUI();
                 }
             } else {
-                // Salimos del Sabías Que y volvemos a iniciar el ciclo de aeropuertos desde el puesto #1
-                estadoActual = "ranking";
-                paginaActual = 0;
-                
-                if (tituloPrincipal) tituloPrincipal.innerText = totalPaginas > 1 ? `Gran Trivia de Mayo (1/${totalPaginas})` : "Gran Trivia de Mayo";
-                dibujarPaginaRanking();
+                if (contadorCiclosSabiasQue < CICLOS_SABIAS_QUE) {
+                    contadorCiclosSabiasQue++;
+                    mostrarDatoCuriosoUI();
+                } else {
+                    estadoActual = "ranking";
+                    paginaActual = 0;
+                    if (tituloPrincipal) tituloPrincipal.innerText = totalPaginas > 1 ? `Gran Trivia de Mayo (1/${totalPaginas})` : "Gran Trivia de Mayo";
+                    dibujarPaginaRanking();
+                }
             }
         }
-
-        // Arrancar el reloj a 10 segundos clavados
-        setInterval(ejecutarRotacion, 10000);
     </script>
